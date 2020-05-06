@@ -11,6 +11,7 @@ const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 128;
 const INITIAL_GENOME_SCALE: f64 = 64.0;
 const INITIAL_ENTRIES_SCALE: f64 = 4.0;
+// TODO: This shouldn't be necessary. We can modify all branches on mutation to continue branching to the same spots.
 const BRANCH_LIMIT: i32 = 32;
 
 #[derive(Clone, Debug)]
