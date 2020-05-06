@@ -8,9 +8,9 @@ use rand_distr::Exp1;
 use std::sync::Arc;
 
 const NUM_STATE: usize = 4;
-const MAX_EXECUTE: usize = 32;
-const INITIAL_GENOME_SCALE: f64 = 16.0;
-const INITIAL_ENTRIES_SCALE: f64 = 1.0;
+const MAX_EXECUTE: usize = 128;
+const INITIAL_GENOME_SCALE: f64 = 32.0;
+const INITIAL_ENTRIES_SCALE: f64 = 4.0;
 
 #[derive(Clone, Debug)]
 pub struct Brain {
@@ -83,7 +83,9 @@ impl Dna {
         // Handle the creation and removal of entry points.
         if !self.sequence.is_empty() && rng.gen_bool(0.5) {
             // Add an entry.
-            self.entries.push(rng.gen_range(0, self.sequence.len()));
+            let position = rng.gen_range(0, self.entries.len() + 1);
+            self.entries
+                .insert(position, rng.gen_range(0, self.sequence.len()));
         } else if !self.entries.is_empty() {
             // Remove an entry.
             let position = rng.gen_range(0, self.entries.len());

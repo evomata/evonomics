@@ -9,9 +9,9 @@ use gridsim::{moore::*, Neighborhood, Sim, SquareGrid};
 use rand::Rng;
 use std::iter::once;
 
-const CELL_SPAWN_PROBABILITY: f64 = 0.0001;
+const CELL_SPAWN_PROBABILITY: f64 = 0.00001;
 const SPAWN_FOOD: usize = 16;
-const FOOD_SPAWN_PROBABILITY: f64 = 0.1;
+const FOOD_SPAWN_PROBABILITY: f64 = 0.001;
 const MUTATE_PROBABILITY: f64 = 1.0;
 
 // Langton's Ant
