@@ -11,6 +11,7 @@ const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 128;
 const INITIAL_GENOME_SCALE: f64 = 64.0;
 const INITIAL_ENTRIES_SCALE: f64 = 4.0;
+const BRANCH_LIMIT: i32 = 32;
 
 #[derive(Clone, Debug)]
 pub struct Brain {
@@ -213,8 +214,11 @@ impl Distribution<Codon> for Standard {
             2 => Codon::Mul,
             3 => Codon::Div,
             4 => Codon::Literal(rng.gen()),
-            5 => Codon::Less(rng.gen(), rng.gen()),
-            6 => Codon::Jump(rng.gen()),
+            5 => Codon::Less(
+                rng.gen::<i32>() % BRANCH_LIMIT,
+                rng.gen::<i32>() % BRANCH_LIMIT,
+            ),
+            6 => Codon::Jump(rng.gen::<i32>() % BRANCH_LIMIT),
             7 => Codon::Copy(rng.gen()),
             8 => Codon::Read(rng.gen()),
             9 => Codon::Input(rng.gen()),
