@@ -1,9 +1,9 @@
 extern crate gridsim;
 extern crate gridsim_ui;
 
-use gridsim::{
-    moore::*, Direction, Rule, SquareGrid,
-};
+mod brain;
+
+use gridsim::{moore::*, Direction, Rule, SquareGrid};
 
 // Langton's Ant
 enum LAnt {}
@@ -57,5 +57,6 @@ fn main() {
         } else {
             [0.0, 0.0, 0.0]
         }
-    }).run(grid);
+    })
+    .run(grid);
 }

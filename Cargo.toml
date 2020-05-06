@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 gridsim = "0.3.2"
 gridsim-ui = "0.4.1"
+rand = "0.7.3"
+rand_distr = "0.2.2"
