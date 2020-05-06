@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 128;
-const INITIAL_GENOME_SCALE: f64 = 32.0;
+const INITIAL_GENOME_SCALE: f64 = 64.0;
 const INITIAL_ENTRIES_SCALE: f64 = 4.0;
 
 #[derive(Clone, Debug)]
