@@ -12,7 +12,7 @@ use std::iter::once;
 const CELL_SPAWN_PROBABILITY: f64 = 0.00001;
 const SPAWN_FOOD: usize = 16;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.001;
-const MUTATE_PROBABILITY: f64 = 1.0;
+const MUTATE_PROBABILITY: f64 = 0.1;
 
 // Langton's Ant
 enum Evonomics {}
