@@ -9,9 +9,10 @@ use gridsim::{moore::*, Neighborhood, Sim, SquareGrid};
 use rand::Rng;
 use std::iter::once;
 
-const CELL_SPAWN_PROBABILITY: f64 = 0.001;
+const CELL_SPAWN_PROBABILITY: f64 = 0.0001;
 const SPAWN_FOOD: usize = 16;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.1;
+const MUTATE_PROBABILITY: f64 = 1.0;
 
 // Langton's Ant
 enum Evonomics {}
@@ -135,17 +136,18 @@ impl<'a> Sim<'a> for Evonomics {
         // Handle food movement.
         cell.food += moves.iter().map(|m| m.food).sum::<usize>();
 
-        // // Handle mutation.
-        // if let Some(ref mut brain) = cell.brain {
-        //     brain.mutate(MUTATE_LAMBDA);
-        // }
+        // Handle mutation.
+        if let Some(ref mut brain) = cell.brain {
+            if rand::thread_rng().gen_bool(MUTATE_PROBABILITY) {
+                brain.mutate();
+            }
+        }
 
         // Handle spawning.
         if cell.brain.is_none() && rand::thread_rng().gen_bool(CELL_SPAWN_PROBABILITY) {
             cell.brain = Some(rand::thread_rng().gen());
             cell.food += SPAWN_FOOD;
         }
-
         if rand::thread_rng().gen_bool(FOOD_SPAWN_PROBABILITY) {
             cell.food += 1;
         }

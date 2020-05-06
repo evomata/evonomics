@@ -10,7 +10,7 @@ use std::sync::Arc;
 const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 32;
 const INITIAL_GENOME_SCALE: f64 = 16.0;
-const INITIAL_ENTRIES_SCALE: f64 = 8.0;
+const INITIAL_ENTRIES_SCALE: f64 = 1.0;
 
 #[derive(Clone, Debug)]
 pub struct Brain {
@@ -32,6 +32,10 @@ impl Brain {
         }
         decision
     }
+
+    pub fn mutate(&mut self) {
+        Arc::make_mut(&mut self.code).mutate();
+    }
 }
 
 impl Distribution<Brain> for Standard {
@@ -49,6 +53,44 @@ struct Dna {
 }
 
 impl Dna {
+    fn mutate(&mut self) {
+        let mut rng = rand::thread_rng();
+        // Handle the creation and removal of codons.
+        if rng.gen_bool(0.5) {
+            // Add a codon.
+            let position = rng.gen_range(0, self.sequence.len() + 1);
+            self.sequence.insert(position, rng.gen());
+            // Move entries.
+            for entry in &mut self.entries {
+                if *entry >= position {
+                    *entry += 1;
+                }
+            }
+        } else if !self.sequence.is_empty() {
+            // Remove a codon.
+            let position = rng.gen_range(0, self.sequence.len());
+            self.sequence.remove(position);
+            // Remove any entries for that codon.
+            self.entries.retain(|&e| e != position);
+            // Move entries.
+            for entry in &mut self.entries {
+                if *entry > position {
+                    *entry -= 1;
+                }
+            }
+        }
+
+        // Handle the creation and removal of entry points.
+        if !self.sequence.is_empty() && rng.gen_bool(0.5) {
+            // Add an entry.
+            self.entries.push(rng.gen_range(0, self.sequence.len()));
+        } else if !self.entries.is_empty() {
+            // Remove an entry.
+            let position = rng.gen_range(0, self.entries.len());
+            self.entries.remove(position);
+        }
+    }
+
     fn execute(&self, inputs: &[f64], memory: &[f64], mut at: usize) -> Action {
         let mut stack = vec![];
         for _ in 0..MAX_EXECUTE {
