@@ -8,8 +8,9 @@ use brain::{Brain, Decision};
 use gridsim::{moore::*, Neighborhood, Sim, SquareGrid};
 use rand::Rng;
 
-const SPAWN_PROBABILITY: f64 = 0.001;
-const SPAWN_FOOD: usize = 128;
+const CELL_SPAWN_PROBABILITY: f64 = 0.001;
+const SPAWN_FOOD: usize = 16;
+const FOOD_SPAWN_PROBABILITY: f64 = 0.001;
 
 // Langton's Ant
 enum Evonomics {}
@@ -108,9 +109,13 @@ impl<'a> Sim<'a> for Evonomics {
         // }
 
         // Handle spawning.
-        if cell.brain.is_none() && rand::thread_rng().gen_bool(SPAWN_PROBABILITY) {
+        if cell.brain.is_none() && rand::thread_rng().gen_bool(CELL_SPAWN_PROBABILITY) {
             cell.brain = Some(rand::thread_rng().gen());
             cell.food += SPAWN_FOOD;
+        }
+
+        if rand::thread_rng().gen_bool(FOOD_SPAWN_PROBABILITY) {
+            cell.food += 1;
         }
     }
 }
@@ -138,6 +143,8 @@ fn main() {
     gridsim_ui::Loop::new(|c: &Cell| {
         if c.brain.is_some() {
             [1.0, 1.0, 1.0]
+        } else if c.food != 0 {
+            [0.0, 1.0, 0.0]
         } else {
             [0.0, 0.0, 0.0]
         }
