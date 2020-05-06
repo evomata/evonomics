@@ -7,10 +7,11 @@ use arrayvec::ArrayVec;
 use brain::{Brain, Decision};
 use gridsim::{moore::*, Neighborhood, Sim, SquareGrid};
 use rand::Rng;
+use std::iter::once;
 
 const CELL_SPAWN_PROBABILITY: f64 = 0.001;
 const SPAWN_FOOD: usize = 16;
-const FOOD_SPAWN_PROBABILITY: f64 = 0.001;
+const FOOD_SPAWN_PROBABILITY: f64 = 0.1;
 
 // Langton's Ant
 enum Evonomics {}
@@ -24,8 +25,21 @@ impl<'a> Sim<'a> for Evonomics {
     type MoveNeighbors = MooreNeighbors<Move>;
 
     fn step(cell: &Cell, neighbors: Self::Neighbors) -> (Diff, Self::MoveNeighbors) {
-        if cell.food == 0 {
+        // Closure for just existing (consuming food and nothing happening).
+        let just_exist = || {
             (
+                Diff {
+                    consume: 1,
+                    moved: false,
+                },
+                MooreNeighbors::new(|_| Move {
+                    food: 0,
+                    brain: None,
+                }),
+            )
+        };
+        if cell.food == 0 || cell.brain.is_none() {
+            return (
                 Diff {
                     consume: 0,
                     moved: true,
@@ -34,53 +48,71 @@ impl<'a> Sim<'a> for Evonomics {
                     food: 0,
                     brain: None,
                 }),
-            )
-        } else {
-            let decision = cell
-                .brain
-                .as_ref()
-                .map(|brain| {
-                    let inputs: ArrayVec<[f64; 4]> = neighbors
-                        .iter()
-                        .map(|n| if n.brain.is_some() { 1.0 } else { 0.0 })
-                        .collect();
-                    // A promise is made here not to look at the brain of any other cell elsewhere.
-                    let brain = unsafe { &mut *(brain as *const Brain as *mut Brain) };
-                    brain.decide(&inputs)
-                })
-                .unwrap_or(Decision::Nothing);
+            );
+        }
+        let decision = cell
+            .brain
+            .as_ref()
+            .map(|brain| {
+                let inputs: ArrayVec<[f64; 5]> = neighbors
+                    .iter()
+                    .flat_map(|n| {
+                        once(if n.brain.is_some() { 1.0 } else { 0.0 }).chain(once(n.food as f64))
+                    })
+                    .chain(Some(cell.food as f64))
+                    .collect();
+                // A promise is made here not to look at the brain of any other cell elsewhere.
+                let brain = unsafe { &mut *(brain as *const Brain as *mut Brain) };
+                brain.decide(&inputs)
+            })
+            .unwrap_or(Decision::Nothing);
 
-            match decision {
-                Decision::Move(dir) => (
-                    Diff {
-                        consume: cell.food,
-                        moved: true,
-                    },
-                    MooreNeighbors::new(|nd| {
-                        if nd == dir {
-                            Move {
-                                food: cell.food,
-                                brain: cell.brain.clone(),
-                            }
-                        } else {
-                            Move {
-                                food: 0,
-                                brain: None,
-                            }
+        match decision {
+            Decision::Move(dir) => (
+                Diff {
+                    consume: cell.food,
+                    moved: true,
+                },
+                MooreNeighbors::new(|nd| {
+                    if nd == dir {
+                        Move {
+                            food: cell.food - 1,
+                            brain: cell.brain.clone(),
                         }
-                    }),
-                ),
-                Decision::Nothing => (
-                    Diff {
-                        consume: 1,
-                        moved: false,
-                    },
-                    MooreNeighbors::new(|_| Move {
-                        food: 0,
-                        brain: None,
-                    }),
-                ),
+                    } else {
+                        Move {
+                            food: 0,
+                            brain: None,
+                        }
+                    }
+                }),
+            ),
+            Decision::Divide(dir) => {
+                if cell.food >= 2 {
+                    (
+                        Diff {
+                            consume: cell.food / 2 + 1,
+                            moved: false,
+                        },
+                        MooreNeighbors::new(|nd| {
+                            if nd == dir {
+                                Move {
+                                    food: cell.food / 2,
+                                    brain: cell.brain.clone(),
+                                }
+                            } else {
+                                Move {
+                                    food: 0,
+                                    brain: None,
+                                }
+                            }
+                        }),
+                    )
+                } else {
+                    just_exist()
+                }
             }
+            Decision::Nothing => just_exist(),
         }
     }
 

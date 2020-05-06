@@ -9,6 +9,8 @@ use std::sync::Arc;
 
 const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 32;
+const INITIAL_GENOME_SCALE: f64 = 16.0;
+const INITIAL_ENTRIES_SCALE: f64 = 8.0;
 
 #[derive(Clone, Debug)]
 pub struct Brain {
@@ -114,6 +116,7 @@ impl Dna {
                     }
                 }
                 Codon::Move(dir) => return Action::Move(dir),
+                Codon::Divide(dir) => return Action::Divide(dir),
                 Codon::Nothing => break,
             }
             at = (at + 1) % self.sequence.len();
@@ -124,13 +127,13 @@ impl Dna {
 
 impl Distribution<Dna> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dna {
-        let sequence_len = rng.sample::<f64, _>(Exp1) as usize;
+        let sequence_len = (rng.sample::<f64, _>(Exp1) * INITIAL_GENOME_SCALE) as usize;
         let sequence = rng.sample_iter(Standard).take(sequence_len).collect();
         let entries = {
             if sequence_len == 0 {
                 vec![]
             } else {
-                let entries_len = rng.sample::<f64, _>(Exp1) as usize;
+                let entries_len = (rng.sample::<f64, _>(Exp1) * INITIAL_ENTRIES_SCALE) as usize;
                 (0..entries_len)
                     .map(|_| rng.gen_range(0, sequence_len))
                     .collect()
@@ -154,32 +157,39 @@ enum Codon {
     Input(u32),
     Write(u32),
     Move(MooreDirection),
+    Divide(MooreDirection),
     Nothing,
 }
 
 impl Distribution<Codon> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Codon {
-        use Codon::*;
         match rng.gen_range(0, 12) {
-            0 => Add,
-            1 => Sub,
-            2 => Mul,
-            3 => Div,
-            4 => Literal(rng.gen()),
-            5 => Less(rng.gen(), rng.gen()),
-            6 => Jump(rng.gen()),
-            7 => Copy(rng.gen()),
-            8 => Read(rng.gen()),
-            9 => Input(rng.gen()),
-            10 => Write(rng.gen()),
-            11 => Move(match rng.gen_range(0, 4) {
+            0 => Codon::Add,
+            1 => Codon::Sub,
+            2 => Codon::Mul,
+            3 => Codon::Div,
+            4 => Codon::Literal(rng.gen()),
+            5 => Codon::Less(rng.gen(), rng.gen()),
+            6 => Codon::Jump(rng.gen()),
+            7 => Codon::Copy(rng.gen()),
+            8 => Codon::Read(rng.gen()),
+            9 => Codon::Input(rng.gen()),
+            10 => Codon::Write(rng.gen()),
+            11 => Codon::Move(match rng.gen_range(0, 4) {
                 0 => MooreDirection::Right,
                 1 => MooreDirection::Up,
                 2 => MooreDirection::Left,
                 3 => MooreDirection::Down,
                 _ => unreachable!(),
             }),
-            12 => Nothing,
+            12 => Codon::Divide(match rng.gen_range(0, 4) {
+                0 => MooreDirection::Right,
+                1 => MooreDirection::Up,
+                2 => MooreDirection::Left,
+                3 => MooreDirection::Down,
+                _ => unreachable!(),
+            }),
+            13 => Codon::Nothing,
             _ => unreachable!(),
         }
     }
@@ -188,11 +198,13 @@ impl Distribution<Codon> for Standard {
 pub enum Action {
     Write(u32, f64),
     Move(MooreDirection),
+    Divide(MooreDirection),
     Nothing,
 }
 
 pub enum Decision {
     Move(MooreDirection),
+    Divide(MooreDirection),
     Nothing,
 }
 
@@ -200,6 +212,7 @@ impl From<Action> for Decision {
     fn from(action: Action) -> Decision {
         match action {
             Action::Move(dir) => Decision::Move(dir),
+            Action::Divide(dir) => Decision::Divide(dir),
             Action::Nothing => Decision::Nothing,
             _ => panic!("you shouldn't try to turn just any action into a decision"),
         }
