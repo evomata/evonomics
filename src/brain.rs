@@ -1,3 +1,4 @@
+use arrayvec::ArrayVec;
 use gridsim::moore::MooreDirection;
 use rand::{
     distributions::{Distribution, Standard},
@@ -9,17 +10,21 @@ use std::sync::Arc;
 const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 32;
 
+#[derive(Clone, Debug)]
 pub struct Brain {
-    memory: [f64; NUM_STATE],
+    memory: ArrayVec<[f64; NUM_STATE]>,
     code: Arc<Dna>,
 }
 
 impl Brain {
-    pub fn think(&mut self, inputs: &[f64]) -> Decision {
+    pub fn decide(&mut self, inputs: &[f64]) -> Decision {
         let mut decision = Decision::Nothing;
         for &entry in &self.code.entries {
             match self.code.execute(inputs, &self.memory, entry) {
-                Action::Write(pos, v) => self.memory[pos as usize % self.memory.len()] = v,
+                Action::Write(pos, v) => {
+                    let writepos = pos as usize % self.memory.len();
+                    self.memory[writepos] = v;
+                }
                 action => decision = action.into(),
             }
         }
@@ -29,12 +34,13 @@ impl Brain {
 
 impl Distribution<Brain> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Brain {
-        let memory = [0.0; NUM_STATE];
+        let memory = std::iter::repeat(0.0).collect();
         let code = Arc::new(rng.gen());
         Brain { memory, code }
     }
 }
 
+#[derive(Clone, Debug)]
 struct Dna {
     sequence: Vec<Codon>,
     entries: Vec<usize>,
@@ -120,10 +126,16 @@ impl Distribution<Dna> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dna {
         let sequence_len = rng.sample::<f64, _>(Exp1) as usize;
         let sequence = rng.sample_iter(Standard).take(sequence_len).collect();
-        let entries_len = rng.sample::<f64, _>(Exp1) as usize;
-        let entries = (0..entries_len)
-            .map(|_| rng.gen_range(0, sequence_len))
-            .collect();
+        let entries = {
+            if sequence_len == 0 {
+                vec![]
+            } else {
+                let entries_len = rng.sample::<f64, _>(Exp1) as usize;
+                (0..entries_len)
+                    .map(|_| rng.gen_range(0, sequence_len))
+                    .collect()
+            }
+        };
         Dna { sequence, entries }
     }
 }

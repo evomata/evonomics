@@ -30,6 +30,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
+
+[[package]]
 name = "autocfg"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -264,6 +270,7 @@ dependencies = [
 name = "evonomics"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "gridsim",
  "gridsim-ui",
  "rand 0.7.3",
