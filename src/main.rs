@@ -12,7 +12,7 @@ use std::iter::once;
 const CELL_SPAWN_PROBABILITY: f64 = 0.00001;
 const SPAWN_FOOD: usize = 16;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.001;
-const MUTATE_PROBABILITY: f64 = 0.1;
+const MUTATE_PROBABILITY: f64 = 0.01;
 
 // Langton's Ant
 enum Evonomics {}
@@ -128,7 +128,9 @@ impl<'a> Sim<'a> for Evonomics {
 
         // Handle brain movement.
         let mut brain_moves = moves.clone().iter().filter(|m| m.brain.is_some());
-        if brain_moves.clone().count() == 1 {
+        if brain_moves.clone().count() >= 1 && cell.brain.is_some() {
+            cell.brain = None;
+        } else if brain_moves.clone().count() == 1 {
             let m = brain_moves.next().unwrap();
             cell.brain = m.brain;
         }
