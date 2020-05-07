@@ -9,10 +9,11 @@ use gridsim::{moore::*, Neighborhood, Sim, SquareGrid};
 use rand::Rng;
 use std::iter::once;
 
-const CELL_SPAWN_PROBABILITY: f64 = 0.00001;
+const CELL_SPAWN_PROBABILITY: f64 = 0.0001;
 const SPAWN_FOOD: usize = 16;
-const FOOD_SPAWN_PROBABILITY: f64 = 0.001;
-const MUTATE_PROBABILITY: f64 = 0.01;
+const FOOD_SPAWN_PROBABILITY: f64 = 0.05;
+const MUTATE_PROBABILITY: f64 = 0.001;
+const MOVE_PENALTY: usize = 16;
 
 // Langton's Ant
 enum Evonomics {}
@@ -69,36 +70,42 @@ impl<'a> Sim<'a> for Evonomics {
             .unwrap_or(Decision::Nothing);
 
         match decision {
-            Decision::Move(dir) => (
-                Diff {
-                    consume: cell.food,
-                    moved: true,
-                },
-                MooreNeighbors::new(|nd| {
-                    if nd == dir {
-                        Move {
-                            food: cell.food - 1,
-                            brain: cell.brain.clone(),
-                        }
-                    } else {
-                        Move {
-                            food: 0,
-                            brain: None,
-                        }
-                    }
-                }),
-            ),
-            Decision::Divide(dir) => {
-                if cell.food >= 2 {
+            Decision::Move(dir) => {
+                if cell.food > MOVE_PENALTY {
                     (
                         Diff {
-                            consume: cell.food / 2 + 1,
+                            consume: cell.food,
+                            moved: true,
+                        },
+                        MooreNeighbors::new(|nd| {
+                            if nd == dir {
+                                Move {
+                                    food: cell.food - 1 - MOVE_PENALTY,
+                                    brain: cell.brain.clone(),
+                                }
+                            } else {
+                                Move {
+                                    food: 0,
+                                    brain: None,
+                                }
+                            }
+                        }),
+                    )
+                } else {
+                    just_exist()
+                }
+            }
+            Decision::Divide(dir) => {
+                if cell.food >= 2 + MOVE_PENALTY {
+                    (
+                        Diff {
+                            consume: cell.food / 2 + 1 + MOVE_PENALTY / 2,
                             moved: false,
                         },
                         MooreNeighbors::new(|nd| {
                             if nd == dir {
                                 Move {
-                                    food: cell.food / 2,
+                                    food: cell.food / 2 - MOVE_PENALTY / 2,
                                     brain: cell.brain.clone(),
                                 }
                             } else {
