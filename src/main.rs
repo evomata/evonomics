@@ -8,7 +8,7 @@ use iced::{ Application, Command, Element, /*Executor,*/ Settings, Subscription,
                                            executor,                                    // App Control Defaults
             Button, Column, Row, Slider, Text,                                          // Widgets
             button,              slider,                                                // Widget Defaults
-            Align, HorizontalAlignment, Length };                                       // Style
+            Align, HorizontalAlignment, VerticalAlignment, Length, Space };             // Style
 
 pub fn main() {
     EvonomicsWorld::run(Settings {
@@ -71,7 +71,7 @@ impl <'a> Application for EvonomicsWorld {
         match message {
             MessageType::SimView => {
                 self.menu_state = MenuState::SimMenu;
-                // self.is_running_sim = true;
+                self.is_running_sim = true;
             },
             MessageType::MainView => {
                 self.menu_state = MenuState::MainMenu;
@@ -143,12 +143,12 @@ impl <'a> Application for EvonomicsWorld {
                                                         .push( Button::new( &mut self.save_simulation_button, Text::new("save") ).min_width(BUTTON_SIZE) )
                                                         .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
                                                             .on_press( MessageType::ToggleSim ) ) )
-                            .push( Slider::new( &mut self.speed_slider, 1.0..=1000.0, speed as f32, MessageType::SpeedChanged ) )
-                            // speed display 
-                            .push( Text::new(format!("x{}", speed) ).size(16))
+                            .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, MessageType::SpeedChanged ) )
+                            .push( Text::new(format!("{} Ticks/s", speed) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
+                            .push( Space::new(Length::Fill, Length::Shrink) )
                             .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
                                 .on_press( MessageType::ToggleGrid ) )
-                            .push( Button::new( &mut self.halt_sim_button, Text::new("Halt Sim") ).min_width(BUTTON_SIZE)
+                            .push( Button::new( &mut self.halt_sim_button, Text::new("Main Menu (Will Pause)") ).min_width(BUTTON_SIZE)
                                 .on_press( MessageType::MainView ) )
                             .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
                             // TODO, requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
