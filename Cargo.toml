@@ -7,5 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+iced = { git = "https://github.com/hecrj/iced", features = ["canvas", "tokio", "debug"] }
+tokio = { version = "0.2", features = ["blocking"] }
+itertools = "0.9"
+rustc-hash = "1.1"
 gridsim = "0.3.2"
-gridsim-ui = "0.4.1"
+rayon = "1.1.0"
