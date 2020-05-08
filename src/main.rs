@@ -17,7 +17,7 @@ const MUTATE_PROBABILITY: f64 = 0.0001;
 const MOVE_PENALTY: usize = 2;
 
 const LOWER_WALL_THRESH: f64 = 0.0;
-const HIGHER_WALL_THRESH: f64 = 0.05;
+const HIGHER_WALL_THRESH: f64 = 0.07;
 const NOISE_FREQ: f64 = 0.02;
 
 // Langton's Ant
