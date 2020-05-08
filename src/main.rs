@@ -12,9 +12,11 @@ use std::iter::once;
 const CELL_SPAWN_PROBABILITY: f64 = 0.0001;
 const SPAWN_FOOD: usize = 16;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.05;
-const WALL_SPAWN_PROBABILITY: f64 = 0.1;
 const MUTATE_PROBABILITY: f64 = 0.0001;
 const MOVE_PENALTY: usize = 16;
+
+const LOWER_WALL_THRESH: f64 = 0.45;
+const HIGHER_WALL_THRESH: f64 = 0.47;
 
 // Langton's Ant
 enum Evonomics {}
@@ -187,8 +189,12 @@ pub struct Diff {
 
 fn main() {
     let mut grid = SquareGrid::<Evonomics>::new(1024, 768);
-    for cell in grid.get_cells_mut() {
-        if rand::thread_rng().gen_bool(WALL_SPAWN_PROBABILITY) {
+    let perlin = perlin_noise::PerlinNoise::new();
+    for (ix, cell) in grid.get_cells_mut().iter_mut().enumerate() {
+        let x = (ix % 1024) as f64;
+        let y = (ix / 1024) as f64;
+        let noise = perlin.get2d([x * 0.01, y * 0.01]);
+        if noise > LOWER_WALL_THRESH && noise < HIGHER_WALL_THRESH {
             cell.wall = true;
         }
     }
