@@ -12,6 +12,7 @@ use std::iter::once;
 const CELL_SPAWN_PROBABILITY: f64 = 0.0001;
 const SPAWN_FOOD: usize = 16;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.05;
+const WALL_SPAWN_PROBABILITY: f64 = 0.1;
 const MUTATE_PROBABILITY: f64 = 0.001;
 const MOVE_PENALTY: usize = 16;
 
@@ -125,40 +126,42 @@ impl<'a> Sim<'a> for Evonomics {
     }
 
     fn update(cell: &mut Cell, diff: Diff, moves: Self::MoveNeighbors) {
-        // Handle food reduction from diff.
-        cell.food = cell.food.saturating_sub(diff.consume);
+        if !cell.wall {
+            // Handle food reduction from diff.
+            cell.food = cell.food.saturating_sub(diff.consume);
 
-        // Handle taking the brain.
-        if diff.moved {
-            cell.brain.take();
-        }
-
-        // Handle brain movement.
-        let mut brain_moves = moves.clone().iter().filter(|m| m.brain.is_some());
-        if brain_moves.clone().count() >= 1 && cell.brain.is_some() {
-            cell.brain = None;
-        } else if brain_moves.clone().count() == 1 {
-            let m = brain_moves.next().unwrap();
-            cell.brain = m.brain;
-        }
-
-        // Handle food movement.
-        cell.food += moves.iter().map(|m| m.food).sum::<usize>();
-
-        // Handle mutation.
-        if let Some(ref mut brain) = cell.brain {
-            if rand::thread_rng().gen_bool(MUTATE_PROBABILITY) {
-                brain.mutate();
+            // Handle taking the brain.
+            if diff.moved {
+                cell.brain.take();
             }
-        }
 
-        // Handle spawning.
-        if cell.brain.is_none() && rand::thread_rng().gen_bool(CELL_SPAWN_PROBABILITY) {
-            cell.brain = Some(rand::thread_rng().gen());
-            cell.food += SPAWN_FOOD;
-        }
-        if rand::thread_rng().gen_bool(FOOD_SPAWN_PROBABILITY) {
-            cell.food += 1;
+            // Handle brain movement.
+            let mut brain_moves = moves.clone().iter().filter(|m| m.brain.is_some());
+            if brain_moves.clone().count() >= 1 && cell.brain.is_some() {
+                cell.brain = None;
+            } else if brain_moves.clone().count() == 1 {
+                let m = brain_moves.next().unwrap();
+                cell.brain = m.brain;
+            }
+
+            // Handle food movement.
+            cell.food += moves.iter().map(|m| m.food).sum::<usize>();
+
+            // Handle mutation.
+            if let Some(ref mut brain) = cell.brain {
+                if rand::thread_rng().gen_bool(MUTATE_PROBABILITY) {
+                    brain.mutate();
+                }
+            }
+
+            // Handle spawning.
+            if cell.brain.is_none() && rand::thread_rng().gen_bool(CELL_SPAWN_PROBABILITY) {
+                cell.brain = Some(rand::thread_rng().gen());
+                cell.food += SPAWN_FOOD;
+            }
+            if rand::thread_rng().gen_bool(FOOD_SPAWN_PROBABILITY) {
+                cell.food += 1;
+            }
         }
     }
 }
@@ -166,6 +169,7 @@ impl<'a> Sim<'a> for Evonomics {
 #[derive(Clone, Debug, Default)]
 pub struct Cell {
     pub food: usize,
+    pub wall: bool,
     pub brain: Option<Brain>,
 }
 
@@ -182,9 +186,16 @@ pub struct Diff {
 }
 
 fn main() {
-    let grid = SquareGrid::<Evonomics>::new(256, 256);
+    let mut grid = SquareGrid::<Evonomics>::new(1024, 768);
+    for cell in grid.get_cells_mut() {
+        if rand::thread_rng().gen_bool(WALL_SPAWN_PROBABILITY) {
+            cell.wall = true;
+        }
+    }
     gridsim_ui::Loop::new(|c: &Cell| {
-        if c.brain.is_some() {
+        if c.wall {
+            [1.0, 0.0, 0.0]
+        } else if c.brain.is_some() {
             [1.0, 1.0, 1.0]
         } else if c.food != 0 {
             [0.0, 1.0, 0.0]
