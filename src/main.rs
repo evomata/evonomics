@@ -13,7 +13,7 @@ const CELL_SPAWN_PROBABILITY: f64 = 0.0001;
 const SPAWN_FOOD: usize = 16;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.05;
 const WALL_SPAWN_PROBABILITY: f64 = 0.1;
-const MUTATE_PROBABILITY: f64 = 0.001;
+const MUTATE_PROBABILITY: f64 = 0.0001;
 const MOVE_PENALTY: usize = 16;
 
 // Langton's Ant
