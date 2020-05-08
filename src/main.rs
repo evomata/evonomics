@@ -55,7 +55,7 @@ impl <'a> Application for EvonomicsWorld {
         (
             EvonomicsWorld {
                 menu_state: MenuState::MainMenu,
-                speed: 1,
+                speed: 16,
                 .. EvonomicsWorld::default()
             },
             Command::none()
