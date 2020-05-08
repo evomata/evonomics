@@ -169,7 +169,7 @@ impl canvas::Program<Message> for Grid {
 // TODO OKAY; so.. i,j are isize expected by ice; x,y are floating point from mouse position projection; gridsim code uses usize
 //  check where primitive choices for ice and gridsim code are made and if pertinent, change them for more consistency
 //     If not pertinent, at least change these to ensure there are no boundary issues!
-// FIXME <CELL INTERACTION>: more complicated gridsim cells won't have enough information for generating CellState cells for these messages
+// TODO <CELL INTERACTION>: more complicated gridsim cells won't have enough information for generating CellState cells for these messages
 // let point = self.project( cursor_position, bounds.size() );
 //        let (i, j) = evo::CellState::at( point.x, point.y );
 // let is_populated = self.state.cell_at(i as usize, j as usize);
