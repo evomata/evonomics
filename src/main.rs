@@ -56,7 +56,6 @@ enum Message {
     ToggleSim,
     ToggleGrid,
     Tick,
-    Grid(grid::Message),
     Null,
 }
 
@@ -156,9 +155,6 @@ impl<'a> Application for EvonomicsWorld {
                     },
                 );
             }
-            Message::Grid(grid_message) => {
-                self.grid.update(grid_message);
-            }
             Message::Null => {}
         }
         Command::none()
@@ -223,7 +219,7 @@ impl<'a> Application for EvonomicsWorld {
                                 .on_press( Message::MainView ) )
                             .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
                             // TODO, requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
-                        .push( self.grid.view().map(Message::Grid) ) )
+                        .push( self.grid.view().map(|_| Message::Null) ) )
                     .into()
             }
         }

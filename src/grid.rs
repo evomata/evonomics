@@ -75,7 +75,7 @@ impl Grid {
         }
     }
 
-    pub fn view<'a>(&'a mut self) -> Element<'a, Message> {
+    pub fn view<'a>(&'a mut self) -> Element<'a, ()> {
         Canvas::new(self)
             .width(Length::Fill)
             .height(Length::Fill)
@@ -109,8 +109,8 @@ impl Grid {
     }
 }
 
-impl canvas::Program<Message> for Grid {
-    fn update(&mut self, event: Event, bounds: Rectangle, cursor: Cursor) -> Option<Message> {
+impl canvas::Program<()> for Grid {
+    fn update(&mut self, event: Event, bounds: Rectangle, cursor: Cursor) -> Option<()> {
         if let Event::Mouse(mouse::Event::ButtonReleased(_)) = event {
             self.interaction = Interaction::None;
         }
