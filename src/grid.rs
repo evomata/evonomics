@@ -71,6 +71,7 @@ impl Grid {
                 self.tick_start = Instant::now();
                 self.tick_durations.push_front(tick_duration);
                 self.tick_durations.truncate(AVERAGING_COUNT);
+                self.life_cache.clear();
             }
         }
     }
