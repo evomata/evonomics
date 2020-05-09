@@ -122,7 +122,8 @@ impl<'a> Application for EvonomicsWorld {
     // queue tick in update function regularly
     fn subscription(&self) -> Subscription<MessageType> {
         if self.is_running_sim {
-            time::every(Duration::from_millis(1000 / self.speed as u64)).map(MessageType::Tick)
+            time::every(Duration::from_millis((1000.0 / self.speed as f64) as u64))
+                .map(MessageType::Tick)
         } else {
             Subscription::none()
         }
