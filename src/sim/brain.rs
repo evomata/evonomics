@@ -2,6 +2,7 @@ use arrayvec::ArrayVec;
 use gridsim::moore::MooreDirection;
 use rand::{
     distributions::{Distribution, Standard},
+    seq::SliceRandom,
     Rng,
 };
 use rand_distr::Exp1;
@@ -21,7 +22,9 @@ pub struct Brain {
 impl Brain {
     pub fn decide(&mut self, inputs: &[f64]) -> Decision {
         let mut decision = Decision::Nothing;
-        for &entry in &self.code.entries {
+        let mut entries = self.code.entries.clone();
+        entries.shuffle(&mut rand::thread_rng());
+        for &entry in &entries {
             match self.code.execute(inputs, &self.memory, entry) {
                 Action::Write(pos, v) => {
                     let writepos = pos as usize % self.memory.len();
