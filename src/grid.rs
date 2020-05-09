@@ -1,9 +1,6 @@
-// Grid code modified from ICED Examples
-// MIT
-
-mod evo;
-
-use std::future::Future;
+use crate::sim;
+use float_ord::FloatOrd;
+use std::collections::VecDeque;
 use std::ops::RangeInclusive;
 use std::time::{Duration, Instant};
 
@@ -13,49 +10,49 @@ use iced::{
     VerticalAlignment,
 };
 
+const CELL_SIZE: usize = 20;
+const SIDE: usize = 320;
+
 const AVERAGING_COUNT: usize = 15;
 
+#[derive(Debug)]
+pub enum Message {
+    View(sim::View),
+}
+
+impl From<sim::View> for Message {
+    fn from(view: sim::View) -> Self {
+        Self::View(view)
+    }
+}
+
 pub struct Grid {
-    state: evo::State,
+    view: sim::View,
     interaction: Interaction,
     life_cache: Cache,
     grid_cache: Cache,
     translation: Vector,
     scaling: f32,
     show_lines: bool,
-    last_tick_duration: [u128; AVERAGING_COUNT],
-    inter_tick_duration: [f32; AVERAGING_COUNT],
-    last_tick_start: Instant,
+    tick_durations: VecDeque<Duration>,
+    /// When a tick comes in, this is used to measure the elapsed time of the tick.
+    tick_start: Instant,
     last_queued_ticks: usize,
-    version: usize,
-}
-
-#[derive(Debug, Clone)]
-pub enum Message {
-    // Populate(evo::CellState),
-    // Unpopulate(evo::CellState),
-    Ticked {
-        result: Result<evo::LifeContainer, evo::TickError>,
-        tick_duration: Duration,
-        version: usize,
-    },
 }
 
 impl<'a> Default for Grid {
     fn default() -> Self {
         Self {
-            state: evo::State::default(),
+            view: sim::View::default(),
             interaction: Interaction::None,
             life_cache: Cache::default(),
             grid_cache: Cache::default(),
             translation: Vector::new(Self::INITIAL_POS, Self::INITIAL_POS),
             scaling: 1.0,
             show_lines: true,
-            last_tick_duration: Default::default(),
-            inter_tick_duration: Default::default(),
-            last_tick_start: Instant::now(),
+            tick_durations: vec![].into(),
+            tick_start: Instant::now(),
             last_queued_ticks: 0,
-            version: 0,
         }
     }
 }
@@ -63,61 +60,18 @@ impl<'a> Default for Grid {
 impl Grid {
     const MIN_SCALING: f32 = 0.1;
     const MAX_SCALING: f32 = 2.0;
-    const INITIAL_POS: f32 = -((evo::CellState::SIZE * evo::State::SIDE) as f32) * 0.5;
-
-    pub fn tick(&mut self, amount: usize) -> Option<impl Future<Output = Message>> {
-        let version = self.version;
-        let tick = self.state.tick(amount)?;
-
-        self.last_queued_ticks = amount;
-
-        Some(async move {
-            let start = Instant::now();
-            let result = tick.await;
-            let tick_duration = start.elapsed() / amount as u32;
-
-            Message::Ticked {
-                result,
-                version,
-                tick_duration,
-            }
-        })
-    }
+    const INITIAL_POS: f32 = -((CELL_SIZE * SIDE) as f32) * 0.5;
 
     pub fn update(&mut self, message: Message) {
         match message {
-            // Message::Populate(_cell) => {
-            // TODO <CELL INTERACTION>: implement this so that the mouse interaction code provides a cell from an opened menu or simply does not invoke this
-            // self.state.populate(cell);
-            // self.life_cache.clear();
-            // }
-            // Message::Unpopulate(_cell) => {
-            // TODO <CELL INTERACTION>: instead of an unpopulate message, open cell view for save/genome exam
-            // }
-            Message::Ticked {
-                result: Ok(life),
-                version,
-                tick_duration,
-            } if version == self.version => {
-                self.state.update(life);
-                self.life_cache.clear();
-
-                for i in 1..AVERAGING_COUNT {
-                    let v = AVERAGING_COUNT - i;
-                    self.inter_tick_duration[v] = self.inter_tick_duration[v - 1];
-                    self.last_tick_duration[v] = self.last_tick_duration[v - 1];
-                }
-                self.last_tick_duration[0] = tick_duration.as_millis();
-                self.inter_tick_duration[0] = self.last_tick_start.elapsed().as_secs_f32();
-
-                self.last_tick_start = Instant::now();
+            Message::View(view) => {
+                // Replace our old view with this new view.
+                self.view = view;
+                let tick_duration = self.tick_start.elapsed();
+                self.tick_start = Instant::now();
+                self.tick_durations.push_front(tick_duration);
+                self.tick_durations.truncate(AVERAGING_COUNT);
             }
-            Message::Ticked {
-                result: Err(error), ..
-            } => {
-                dbg!(error);
-            }
-            Message::Ticked { .. } => {}
         }
     }
 
@@ -260,30 +214,15 @@ impl canvas::Program<Message> for Grid {
                 frame.translate(center);
                 frame.scale(self.scaling);
                 frame.translate(self.translation);
-                frame.scale(evo::CellState::SIZE as f32);
+                frame.scale(CELL_SIZE as f32);
 
                 let region = self.visible_region(frame.size());
 
-                self.state
-                    .cells()
-                    .iter()
-                    .enumerate()
-                    .for_each(|(ix, cell)| {
-                        let (i, j) = self.state.gen_xy_pos(ix);
-                        if region.contained(i, j) {
-                            frame.fill_rectangle(
-                                Point::new(j as f32, i as f32),
-                                Size::UNIT,
-                                if cell.is_ant() {
-                                    Color::from_rgb8(0xFF, 0x0, 0x0)
-                                } else if cell.has_color() {
-                                    Color::WHITE
-                                } else {
-                                    Color::from_rgb8(0x48, 0x4C, 0x54)
-                                },
-                            );
-                        }
-                    });
+                for ((y, x), &color) in self.view.colors.indexed_iter() {
+                    if region.contained(x, y) {
+                        frame.fill_rectangle(Point::new(x as f32, y as f32), Size::UNIT, color);
+                    }
+                }
             });
         });
 
@@ -292,7 +231,7 @@ impl canvas::Program<Message> for Grid {
 
             let hovered_cell = cursor.position_in(&bounds).map(|position| {
                 let point = self.project(position, frame.size());
-                evo::CellState::at(point.x, point.y)
+                cell_at(point.x, point.y)
             });
 
             if let Some(cell) = hovered_cell {
@@ -300,7 +239,7 @@ impl canvas::Program<Message> for Grid {
                     frame.translate(center);
                     frame.scale(self.scaling);
                     frame.translate(self.translation);
-                    frame.scale(evo::CellState::SIZE as f32);
+                    frame.scale(CELL_SIZE as f32);
 
                     frame.fill_rectangle(
                         Point::new(cell.0 as f32, cell.1 as f32),
@@ -330,20 +269,20 @@ impl canvas::Program<Message> for Grid {
                 });
             }
 
-            let cell_count = self.state.cell_count();
+            let seconds_per_tick = self
+                .tick_durations
+                .iter()
+                .map(|d| d.as_secs_f64())
+                .sum::<f64>()
+                / self.tick_durations.len() as f64;
 
             frame.fill_text(Text {
                 content: format!(
                     "{} cell{} @ {} Ms/Tick, {:.3} Ticks/s.. Queued Ticks: {}",
-                    cell_count,
-                    if cell_count == 1 { "" } else { "s" },
-                    self.last_tick_duration.iter().fold(0, |val, dur| val + dur)
-                        / AVERAGING_COUNT as u128,
-                    AVERAGING_COUNT as f32
-                        / self
-                            .inter_tick_duration
-                            .iter()
-                            .fold(0.0, |val, dur| val + dur),
+                    self.view.cells,
+                    if self.view.cells == 1 { "" } else { "s" },
+                    seconds_per_tick / 1000.0,
+                    seconds_per_tick.recip(),
                     self.last_queued_ticks
                 ),
                 ..text
@@ -359,13 +298,13 @@ impl canvas::Program<Message> for Grid {
                 frame.translate(center);
                 frame.scale(self.scaling);
                 frame.translate(self.translation);
-                frame.scale(evo::CellState::SIZE as f32);
+                frame.scale(CELL_SIZE as f32);
 
                 let region = self.visible_region(frame.size());
                 let rows = region.rows();
                 let columns = region.columns();
                 let (total_rows, total_columns) = (rows.clone().count(), columns.clone().count());
-                let width = 2.0 / evo::CellState::SIZE as f32;
+                let width = 2.0 / CELL_SIZE as f32;
                 let color = Color::from_rgb8(70, 74, 83);
 
                 frame.translate(Vector::new(-width / 2.0, -width / 2.0));
@@ -409,24 +348,28 @@ pub struct Region {
     height: f32,
 }
 
-impl Region {
-    fn rows(&self) -> RangeInclusive<isize> {
-        let first_row = (self.y / evo::CellState::SIZE as f32).floor() as isize;
+fn lim_0(n: f32) -> f32 {
+    std::cmp::max(FloatOrd(0.0), FloatOrd(n)).0
+}
 
-        let visible_rows = (self.height / evo::CellState::SIZE as f32).ceil() as isize;
+impl Region {
+    fn rows(&self) -> RangeInclusive<usize> {
+        let first_row = lim_0((self.y / CELL_SIZE as f32).floor()) as usize;
+
+        let visible_rows = lim_0((self.height / CELL_SIZE as f32).ceil()) as usize;
 
         first_row..=first_row + visible_rows
     }
 
-    fn columns(&self) -> RangeInclusive<isize> {
-        let first_column = (self.x / evo::CellState::SIZE as f32).floor() as isize;
+    fn columns(&self) -> RangeInclusive<usize> {
+        let first_column = lim_0((self.x / CELL_SIZE as f32).floor()) as usize;
 
-        let visible_columns = (self.width / evo::CellState::SIZE as f32).ceil() as isize;
+        let visible_columns = lim_0((self.width / CELL_SIZE as f32).ceil()) as usize;
 
         first_column..=first_column + visible_columns
     }
 
-    fn contained(&self, i: isize, j: isize) -> bool {
+    fn contained(&self, i: usize, j: usize) -> bool {
         self.rows().contains(&i) && self.columns().contains(&j)
     }
 }
@@ -436,4 +379,11 @@ enum Interaction {
     // Drawing,
     // Erasing,
     Panning { translation: Vector, start: Point },
+}
+
+pub fn cell_at(x: f32, y: f32) -> (isize, isize) {
+    (
+        (x.ceil() as isize).saturating_sub(1) / CELL_SIZE as isize,
+        (y.ceil() as isize).saturating_sub(1) / CELL_SIZE as isize,
+    )
 }

@@ -1,13 +1,16 @@
-use std::time::{Duration, Instant};
-
-// more GUI logic, adapted from iced examples
 mod grid;
+pub mod sim;
 
+use futures::{
+    channel::mpsc::{Receiver, Sender},
+    prelude::*,
+};
 use iced::{
     button, executor, slider, time, Align, Application, Button, Column, Command, Element,
     HorizontalAlignment, Length, Row, Settings, Slider, Space, Subscription, Text,
     VerticalAlignment,
 };
+use std::time::Duration;
 
 pub fn main() {
     EvonomicsWorld::run(Settings {
@@ -16,9 +19,9 @@ pub fn main() {
     })
 }
 
-#[derive(Default)]
 struct EvonomicsWorld {
     grid: grid::Grid,
+    sim_tx: Sender<sim::ToSim>,
     run_simulation_button: button::State,
     load_save_button: button::State,
     save_simulation_button: button::State,
@@ -30,47 +33,82 @@ struct EvonomicsWorld {
     is_running_sim: bool,
     // 1k/speed = number of ms to delay before queuing ticks
     speed: usize,
-    // how many ticks the grid is supposed to do (async)
-    queued_ticks: usize,
     next_speed: Option<usize>,
 }
+
 enum MenuState {
     MainMenu,
     SimMenu,
 }
+
 impl std::default::Default for MenuState {
     fn default() -> MenuState {
         MenuState::MainMenu
     }
 }
 
-#[derive(Debug, Clone)]
-enum MessageType {
+#[derive(Debug)]
+enum Message {
+    FromSim(sim::FromSim, Receiver<sim::FromSim>),
     SimView,
     MainView,
     SpeedChanged(f32),
     ToggleSim,
     ToggleGrid,
-    Tick(Instant),
+    Tick,
     Grid(grid::Message),
+    Null,
+}
+
+impl Clone for Message {
+    fn clone(&self) -> Self {
+        match self {
+            Self::SimView => Self::SimView,
+            Self::MainView => Self::MainView,
+            Self::ToggleSim => Self::ToggleSim,
+            Self::ToggleGrid => Self::ToggleGrid,
+            Self::Tick => Self::Tick,
+            _ => panic!("do not try to clone messages with data in them"),
+        }
+    }
+}
+
+fn reciever_command(rx: Receiver<sim::FromSim>) -> Command<Message> {
+    Command::perform(rx.into_future(), |(item, stream)| {
+        Message::FromSim(item.expect("sim_rx ended unexpectedly"), stream)
+    })
 }
 
 impl<'a> Application for EvonomicsWorld {
     // application produced messages
-    type Message = MessageType;
+    type Message = Message;
     // run commands and subscriptions
     type Executor = executor::Default;
     // initialization data for application
     type Flags = ();
 
-    fn new(_flags: ()) -> (EvonomicsWorld, Command<Self::Message>) {
+    fn new(_: ()) -> (EvonomicsWorld, Command<Self::Message>) {
+        let (sim_tx, sim_rx, sim_runner) = sim::run_sim(500, 1);
         (
             EvonomicsWorld {
+                grid: Default::default(),
+                sim_tx,
+                run_simulation_button: Default::default(),
+                load_save_button: Default::default(),
+                save_simulation_button: Default::default(),
+                toggle_run_button: Default::default(),
+                halt_sim_button: Default::default(),
+                toggle_grid_button: Default::default(),
+                speed_slider: Default::default(),
                 menu_state: MenuState::MainMenu,
+                is_running_sim: false,
                 speed: 16,
-                ..EvonomicsWorld::default()
+                next_speed: None,
             },
-            Command::none(),
+            Command::batch(vec![
+                Command::perform(sim_runner, |_| panic!()),
+                reciever_command(sim_rx),
+            ]),
         )
     }
 
@@ -81,49 +119,56 @@ impl<'a> Application for EvonomicsWorld {
     // handles user interactions
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            MessageType::SimView => {
+            Message::FromSim(from_sim, stream) => {
+                match from_sim {
+                    sim::FromSim::View(view) => self.grid.update(view.into()),
+                }
+                return reciever_command(stream);
+            }
+            Message::SimView => {
                 self.menu_state = MenuState::SimMenu;
                 self.is_running_sim = true;
             }
-            MessageType::MainView => {
+            Message::MainView => {
                 self.menu_state = MenuState::MainMenu;
                 self.is_running_sim = false;
             }
-            MessageType::SpeedChanged(new_speed) => {
+            Message::SpeedChanged(new_speed) => {
                 if self.is_running_sim {
                     self.next_speed = Some(new_speed.round() as usize);
                 } else {
                     self.speed = new_speed.round() as usize;
                 }
             }
-            MessageType::ToggleSim => {
+            Message::ToggleSim => {
                 self.is_running_sim = !self.is_running_sim;
             }
-            MessageType::ToggleGrid => {
+            Message::ToggleGrid => {
                 self.grid.toggle_lines();
             }
-            MessageType::Tick(_) => {
-                self.queued_ticks = (self.queued_ticks + 1).min(self.speed);
-                if let Some(task) = self.grid.tick(self.queued_ticks) {
-                    if let Some(speed) = self.next_speed.take() {
-                        self.speed = speed;
-                    }
-                    self.queued_ticks = 0;
-                    return Command::perform(task, MessageType::Grid);
-                }
+            Message::Tick => {
+                let mut sim_tx = self.sim_tx.clone();
+                return Command::perform(
+                    async move { sim_tx.send(sim::ToSim::Tick(1)).await },
+                    |res| {
+                        res.map(|_| Message::Null)
+                            .expect("sim_tx ended unexpectedly")
+                    },
+                );
             }
-            MessageType::Grid(grid_message) => {
+            Message::Grid(grid_message) => {
                 self.grid.update(grid_message);
             }
+            Message::Null => {}
         }
         Command::none()
     }
 
     // queue tick in update function regularly
-    fn subscription(&self) -> Subscription<MessageType> {
+    fn subscription(&self) -> Subscription<Message> {
         if self.is_running_sim {
             time::every(Duration::from_millis((1000.0 / self.speed as f64) as u64))
-                .map(MessageType::Tick)
+                .map(|_| Message::Tick)
         } else {
             Subscription::none()
         }
@@ -148,7 +193,7 @@ impl<'a> Application for EvonomicsWorld {
                                 .horizontal_alignment(HorizontalAlignment::Center),
                         )
                         .min_width(BUTTON_SIZE)
-                        .on_press(MessageType::SimView),
+                        .on_press(Message::SimView),
                     )
                     .push(
                         Button::new(
@@ -168,17 +213,17 @@ impl<'a> Application for EvonomicsWorld {
                             Box::new( Column::new().spacing(10).max_width(220)
                                                         .push( Button::new( &mut self.save_simulation_button, Text::new("save") ).min_width(BUTTON_SIZE) )
                                                         .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
-                                                            .on_press( MessageType::ToggleSim ) ) )
-                            .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, MessageType::SpeedChanged ) )
+                                                            .on_press( Message::ToggleSim ) ) )
+                            .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ) )
                             .push( Text::new(format!("{} Ticks/s", speed) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
                             .push( Space::new(Length::Fill, Length::Shrink) )
                             .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
-                                .on_press( MessageType::ToggleGrid ) )
+                                .on_press( Message::ToggleGrid ) )
                             .push( Button::new( &mut self.halt_sim_button, Text::new("Main Menu (Will Pause)") ).min_width(BUTTON_SIZE)
-                                .on_press( MessageType::MainView ) )
+                                .on_press( Message::MainView ) )
                             .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
                             // TODO, requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
-                        .push( self.grid.view().map(MessageType::Grid) ) )
+                        .push( self.grid.view().map(Message::Grid) ) )
                     .into()
             }
         }
