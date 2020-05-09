@@ -1,4 +1,4 @@
-use gridsim::{ moore::*, Direction, Rule, SquareGrid };
+use gridsim::{moore::*, Direction, Rule, SquareGrid};
 
 use std::future::Future;
 
@@ -46,15 +46,21 @@ pub struct CellState {
 
 impl CellState {
     pub const SIZE: usize = 20;
-    
-    pub fn at( x: f32, y: f32 ) -> (isize, isize) {
-        ( (x.ceil() as isize).saturating_sub(1) / Self::SIZE as isize,
-          (y.ceil() as isize ).saturating_sub(1) / Self::SIZE as isize )
+
+    pub fn at(x: f32, y: f32) -> (isize, isize) {
+        (
+            (x.ceil() as isize).saturating_sub(1) / Self::SIZE as isize,
+            (y.ceil() as isize).saturating_sub(1) / Self::SIZE as isize,
+        )
     }
 
-    pub fn is_ant(&self) -> bool { self.ant.is_some() }
+    pub fn is_ant(&self) -> bool {
+        self.ant.is_some()
+    }
 
-    pub fn has_color(&self) -> bool { self.color }
+    pub fn has_color(&self) -> bool {
+        self.color
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -64,7 +70,7 @@ pub struct State {
     is_ticking: bool,
 }
 
-impl <'a> std::default::Default for State {
+impl<'a> std::default::Default for State {
     fn default() -> Self {
         State {
             life: SquareGrid::<LAnt>::new_coords(
@@ -91,37 +97,36 @@ impl State {
         1
     }
 
-// // is there a cell at x,y
-// pub fn cell_at(&self, x: usize, y: usize) -> bool {
-//     self.life.get_cell_at(x / CellState::SIZE, y / CellState::SIZE).ant.is_some()
-// }
+    // // is there a cell at x,y
+    // pub fn cell_at(&self, x: usize, y: usize) -> bool {
+    //     self.life.get_cell_at(x / CellState::SIZE, y / CellState::SIZE).ant.is_some()
+    // }
 
     pub fn cells(&self) -> &[CellState] {
         self.life.get_cells()
     }
 
-// TODO: we will need to be able to select a saved cell and pass it to this function for this.
-//     pub fn populate(&mut self, cell: CellState) {
-// panic!("unimplemented");
-//         // if self.is_ticking {
-//         //     // store to pending var to add on update call
-//         // } else {
-//         //     // add cell
-//         // }
-//     }
+    // TODO: we will need to be able to select a saved cell and pass it to this function for this.
+    //     pub fn populate(&mut self, cell: CellState) {
+    // panic!("unimplemented");
+    //         // if self.is_ticking {
+    //         //     // store to pending var to add on update call
+    //         // } else {
+    //         //     // add cell
+    //         // }
+    //     }
 
-// TODO: I don't think we want to manually kill cells... remove this
-//     pub fn unpopulate(&mut self, cell: &CellState) {
-// panic!("unimplemented");
-//         // if self.is_ticking {
-//         //     // remove cell from pending
-//         // } else {
-//         //     // remove cell
-//         // }
-//     }
+    // TODO: I don't think we want to manually kill cells... remove this
+    //     pub fn unpopulate(&mut self, cell: &CellState) {
+    // panic!("unimplemented");
+    //         // if self.is_ticking {
+    //         //     // remove cell from pending
+    //         // } else {
+    //         //     // remove cell
+    //         // }
+    //     }
 
-    pub fn update(&mut self, mut life: SquareGrid<'static, LAnt>) {
-        
+    pub fn update(&mut self, life: SquareGrid<'static, LAnt>) {
         // TODO  with mut life,  add cells which are pending, remove cells pending removal
 
         self.life = life;
@@ -152,9 +157,12 @@ impl State {
             .map_err(|_| TickError::JoinFailed)
         })
     }
-    
+
     pub fn gen_xy_pos(&self, ix: usize) -> (isize, isize) {
-        ( ( ix % self.life.get_width() ) as isize, ( ix / self.life.get_width() ) as isize )
+        (
+            (ix % self.life.get_width()) as isize,
+            (ix / self.life.get_width()) as isize,
+        )
     }
 }
 

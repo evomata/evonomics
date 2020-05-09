@@ -1,14 +1,13 @@
-
 use std::time::{Duration, Instant};
 
 // more GUI logic, adapted from iced examples
 mod grid;
 
-use iced::{ Application, Command, Element, /*Executor,*/ Settings, Subscription, time,  // App Controls
-                                           executor,                                    // App Control Defaults
-            Button, Column, Row, Slider, Text,                                          // Widgets
-            button,              slider,                                                // Widget Defaults
-            Align, HorizontalAlignment, VerticalAlignment, Length, Space };             // Style
+use iced::{
+    button, executor, slider, time, Align, Application, Button, Column, Command, Element,
+    HorizontalAlignment, Length, Row, Settings, Slider, Space, Subscription, Text,
+    VerticalAlignment,
+};
 
 pub fn main() {
     EvonomicsWorld::run(Settings {
@@ -35,15 +34,28 @@ struct EvonomicsWorld {
     queued_ticks: usize,
     next_speed: Option<usize>,
 }
-enum MenuState { MainMenu, SimMenu, CellMenu }
+enum MenuState {
+    MainMenu,
+    SimMenu,
+}
 impl std::default::Default for MenuState {
-    fn default() -> MenuState { MenuState::MainMenu }
+    fn default() -> MenuState {
+        MenuState::MainMenu
+    }
 }
 
 #[derive(Debug, Clone)]
-enum MessageType { SimView, MainView, SpeedChanged(f32), ToggleSim, ToggleGrid, Tick(Instant), Grid(grid::Message) }
+enum MessageType {
+    SimView,
+    MainView,
+    SpeedChanged(f32),
+    ToggleSim,
+    ToggleGrid,
+    Tick(Instant),
+    Grid(grid::Message),
+}
 
-impl <'a> Application for EvonomicsWorld {
+impl<'a> Application for EvonomicsWorld {
     // application produced messages
     type Message = MessageType;
     // run commands and subscriptions
@@ -56,9 +68,9 @@ impl <'a> Application for EvonomicsWorld {
             EvonomicsWorld {
                 menu_state: MenuState::MainMenu,
                 speed: 16,
-                .. EvonomicsWorld::default()
+                ..EvonomicsWorld::default()
             },
-            Command::none()
+            Command::none(),
         )
     }
 
@@ -72,25 +84,25 @@ impl <'a> Application for EvonomicsWorld {
             MessageType::SimView => {
                 self.menu_state = MenuState::SimMenu;
                 self.is_running_sim = true;
-            },
+            }
             MessageType::MainView => {
                 self.menu_state = MenuState::MainMenu;
                 self.is_running_sim = false;
-            },
+            }
             MessageType::SpeedChanged(new_speed) => {
                 if self.is_running_sim {
                     self.next_speed = Some(new_speed.round() as usize);
                 } else {
                     self.speed = new_speed.round() as usize;
                 }
-            },
+            }
             MessageType::ToggleSim => {
                 self.is_running_sim = !self.is_running_sim;
-            },
+            }
             MessageType::ToggleGrid => {
                 self.grid.toggle_lines();
-            },
-            MessageType::Tick( _ ) => {
+            }
+            MessageType::Tick(_) => {
                 self.queued_ticks = (self.queued_ticks + 1).min(self.speed);
                 if let Some(task) = self.grid.tick(self.queued_ticks) {
                     if let Some(speed) = self.next_speed.take() {
@@ -99,18 +111,18 @@ impl <'a> Application for EvonomicsWorld {
                     self.queued_ticks = 0;
                     return Command::perform(task, MessageType::Grid);
                 }
-            },
-            MessageType::Grid( grid_message) => {
-                self.grid.update( grid_message );
+            }
+            MessageType::Grid(grid_message) => {
+                self.grid.update(grid_message);
             }
         }
         Command::none()
     }
-    
+
     // queue tick in update function regularly
     fn subscription(&self) -> Subscription<MessageType> {
         if self.is_running_sim {
-            time::every( Duration::from_millis(1000 / self.speed as u64) ).map(MessageType::Tick)
+            time::every(Duration::from_millis(1000 / self.speed as u64)).map(MessageType::Tick)
         } else {
             Subscription::none()
         }
@@ -126,18 +138,32 @@ impl <'a> Application for EvonomicsWorld {
                     .width(Length::Fill)
                     .padding(100)
                     .spacing(60)
-                    .align_items( Align::Center )
-                    .push( Text::new("Evonomics").size(50) )
-                    .push( Button::new( &mut self.run_simulation_button, Text::new("Run Simulation").horizontal_alignment(HorizontalAlignment::Center) ).min_width(BUTTON_SIZE)
-                        .on_press( MessageType::SimView ) )
-                    .push( Button::new( &mut self.load_save_button, Text::new("Load Save").horizontal_alignment(HorizontalAlignment::Center) ).min_width(BUTTON_SIZE) )
+                    .align_items(Align::Center)
+                    .push(Text::new("Evonomics").size(50))
+                    .push(
+                        Button::new(
+                            &mut self.run_simulation_button,
+                            Text::new("Run Simulation")
+                                .horizontal_alignment(HorizontalAlignment::Center),
+                        )
+                        .min_width(BUTTON_SIZE)
+                        .on_press(MessageType::SimView),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.load_save_button,
+                            Text::new("Load Save")
+                                .horizontal_alignment(HorizontalAlignment::Center),
+                        )
+                        .min_width(BUTTON_SIZE),
+                    )
                     .into()
-                    // TODO: .push(settings:labels&radios&sliders) resource list with scarcity sliders, radio button for market entity, radio button for distance trading, slider for trade penalty, slider for carry capacities, slider for barter penalty
-            },
+                // TODO: .push(settings:labels&radios&sliders) resource list with scarcity sliders, radio button for market entity, radio button for distance trading, slider for trade penalty, slider for carry capacities, slider for barter penalty
+            }
             MenuState::SimMenu => {
                 Row::new()
                     .push( Row::new().padding(10)
-                        .push( 
+                        .push(
                             Box::new( Column::new().spacing(10).max_width(220)
                                                         .push( Button::new( &mut self.save_simulation_button, Text::new("save") ).min_width(BUTTON_SIZE) )
                                                         .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
@@ -153,11 +179,7 @@ impl <'a> Application for EvonomicsWorld {
                             // TODO, requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
                         .push( self.grid.view().map(MessageType::Grid) ) )
                     .into()
-            },
-            MenuState::CellMenu => {
-                // TODO
-                Text::new("Unimplemented!").into()
-            },
+            }
         }
     }
 }
