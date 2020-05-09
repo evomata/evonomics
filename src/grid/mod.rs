@@ -16,6 +16,8 @@ use iced::{
     Size, Vector, VerticalAlignment,
 };
 
+const AVERAGING_COUNT: usize = 15;
+
 pub struct Grid {
     state: evo::State,
     interaction: Interaction,
@@ -24,7 +26,9 @@ pub struct Grid {
     translation: Vector,
     scaling: f32,
     show_lines: bool,
-    last_tick_duration: Duration,
+    last_tick_duration: [u128; AVERAGING_COUNT],
+    inter_tick_duration: [f32; AVERAGING_COUNT],
+    last_tick_start: Instant,
     last_queued_ticks: usize,
     version: usize,
 }
@@ -50,7 +54,9 @@ impl <'a> Default for Grid {
             translation: Vector::new(Self::INITIAL_POS, Self::INITIAL_POS),
             scaling: 1.0,
             show_lines: true,
-            last_tick_duration: Duration::default(),
+            last_tick_duration: Default::default(),
+            inter_tick_duration: Default::default(),
+            last_tick_start: Instant::now(),
             last_queued_ticks: 0,
             version: 0,
         }
@@ -102,7 +108,15 @@ impl Grid {
                 self.state.update(life);
                 self.life_cache.clear();
 
-                self.last_tick_duration = tick_duration;
+                for i in 1..AVERAGING_COUNT {
+                    let v = AVERAGING_COUNT - i;
+                    self.inter_tick_duration[v] = self.inter_tick_duration[v-1];
+                    self.last_tick_duration[v] = self.last_tick_duration[v-1];
+                }
+                self.last_tick_duration[0] = tick_duration.as_millis();
+                self.inter_tick_duration[0] = self.last_tick_start.elapsed().as_secs_f32();
+
+                self.last_tick_start = Instant::now();
             }
             Message::Ticked {
                 result: Err(error), ..
@@ -336,10 +350,11 @@ impl canvas::Program<Message> for Grid {
 
             frame.fill_text(Text {
                 content: format!(
-                    "{} cell{} @ {:?} ({})",
+                    "{} cell{} @ {} Ms/Tick, {:.3} Ticks/s.. Queued Ticks: {}",
                     cell_count,
                     if cell_count == 1 { "" } else { "s" },
-                    self.last_tick_duration,
+                    self.last_tick_duration.iter().fold( 0, |val, dur| val + dur ) / AVERAGING_COUNT as u128,
+                    AVERAGING_COUNT as f32 / self.inter_tick_duration.iter().fold( 0.0, |val, dur| val + dur ),
                     self.last_queued_ticks
                 ),
                 ..text
