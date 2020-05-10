@@ -20,15 +20,15 @@ mod brain;
 
 const CELL_SPAWN_PROBABILITY: f64 = 0.00000001;
 const SPAWN_FOOD: usize = 16;
-const FOOD_SPAWN_PROBABILITY: f64 = 0.05;
+const FOOD_SPAWN_PROBABILITY: f64 = 0.02;
 const MUTATE_PROBABILITY: f64 = 0.001;
-const MOVE_PENALTY: usize = 2;
+const MOVE_PENALTY: usize = 4;
 
 const LOWER_WALL_THRESH: f64 = -0.04;
 const HIGHER_WALL_THRESH: f64 = 0.04;
 const NOISE_FREQ: f64 = 0.02;
 
-const FOOD_COLOR_MULTIPLIER: f32 = 0.1;
+const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
 // Langton's Ant
 enum Evonomics {}
