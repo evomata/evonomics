@@ -21,7 +21,7 @@ mod brain;
 const CELL_SPAWN_PROBABILITY: f64 = 0.0001;
 const SPAWN_FOOD: usize = 16;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.05;
-const MUTATE_PROBABILITY: f64 = 0.0001;
+const MUTATE_PROBABILITY: f64 = 0.001;
 const MOVE_PENALTY: usize = 2;
 
 const LOWER_WALL_THRESH: f64 = 0.0;
