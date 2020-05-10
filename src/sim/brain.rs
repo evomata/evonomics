@@ -19,9 +19,16 @@ fn random_color() -> Color {
     use palette::*;
     let mut rng = rand::thread_rng();
     // Dont allow the color to be green or red.
+    let hue_rand = rng.gen::<f32>() * 240.0;
     let hsv = Hsv::new(
-        RgbHue::from_degrees(rng.gen::<f32>() * 140.0 + 180.0),
-        rng.gen::<f32>() * 0.5 + 0.5,
+        RgbHue::from_degrees(if hue_rand < 60.0 {
+            // Between red and green.
+            hue_rand + 30.0
+        } else {
+            // Between green and red.
+            hue_rand - 60.0 + 150.0
+        }),
+        rng.gen::<f32>() * 0.1 + 0.9,
         1.0,
     );
     let rgb = Srgb::<f32>::from_hsv(hsv);
