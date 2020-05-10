@@ -11,7 +11,9 @@ use iced::{
 };
 
 const CELL_SIZE: usize = 20;
-pub const SIDE: usize = 512;
+pub const SIDE: usize = 1024;
+const MIN_SCALING: f32 = 0.105 * 512.0 / SIDE as f32;
+const MAX_SCALING: f32 = 2.0;
 
 const AVERAGING_COUNT: usize = 15;
 
@@ -58,8 +60,6 @@ impl<'a> Default for Grid {
 }
 
 impl Grid {
-    const MIN_SCALING: f32 = 0.1;
-    const MAX_SCALING: f32 = 2.0;
     const INITIAL_POS: f32 = -((CELL_SIZE * SIDE) as f32) * 0.5;
 
     pub fn update(&mut self, message: Message) {
@@ -159,14 +159,14 @@ impl canvas::Program<()> for Grid {
                 }
                 mouse::Event::WheelScrolled { delta } => match delta {
                     mouse::ScrollDelta::Lines { y, .. } | mouse::ScrollDelta::Pixels { y, .. } => {
-                        if y < 0.0 && self.scaling > Self::MIN_SCALING
-                            || y > 0.0 && self.scaling < Self::MAX_SCALING
+                        if y < 0.0 && self.scaling > MIN_SCALING
+                            || y > 0.0 && self.scaling < MAX_SCALING
                         {
                             let old_scaling = self.scaling;
 
                             self.scaling = (self.scaling * (1.0 + y / 30.0))
-                                .max(Self::MIN_SCALING)
-                                .min(Self::MAX_SCALING);
+                                .max(MIN_SCALING)
+                                .min(MAX_SCALING);
 
                             if let Some(cursor_to_center) = cursor.position_from(bounds.center()) {
                                 let factor = self.scaling - old_scaling;

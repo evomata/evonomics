@@ -24,8 +24,8 @@ const FOOD_SPAWN_PROBABILITY: f64 = 0.05;
 const MUTATE_PROBABILITY: f64 = 0.001;
 const MOVE_PENALTY: usize = 2;
 
-const LOWER_WALL_THRESH: f64 = 0.0;
-const HIGHER_WALL_THRESH: f64 = 0.07;
+const LOWER_WALL_THRESH: f64 = -0.04;
+const HIGHER_WALL_THRESH: f64 = 0.04;
 const NOISE_FREQ: f64 = 0.02;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.1;
@@ -277,7 +277,16 @@ pub struct Sim {
 impl Sim {
     fn new() -> Self {
         let mut grid = SquareGrid::<Evonomics>::new(crate::grid::SIDE, crate::grid::SIDE);
-        let source = noise::Perlin::new();
+        let scaled = noise::ScalePoint::new(noise::OpenSimplex::new()).set_scale(1.4);
+        let scale = noise::Constant::new(0.8);
+        let noise_a = noise::Multiply::new(&scaled, &scale);
+        let noise_b = noise::ScalePoint::new(
+            noise::Worley::new()
+                .enable_range(true)
+                .set_displacement(0.0),
+        )
+        .set_scale(2.0);
+        let source = noise::Min::new(&noise_a, &noise_b);
         for (ix, cell) in grid.get_cells_mut().iter_mut().enumerate() {
             let x = (ix % crate::grid::SIDE) as f64;
             let y = (ix / crate::grid::SIDE) as f64;
