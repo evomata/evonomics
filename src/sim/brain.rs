@@ -1,5 +1,6 @@
 use arrayvec::ArrayVec;
 use gridsim::moore::MooreDirection;
+use iced::Color;
 use itertools::Itertools;
 use rand::{
     distributions::{Distribution, Standard},
@@ -18,16 +19,41 @@ pub fn combine(brains: impl IntoIterator<Item = Brain>) -> Brain {
     let brains = brains.into_iter().collect_vec();
     let code = Arc::new(crossover(brains.iter().map(|b| (*b.code).clone())));
     let memory = std::iter::repeat(0.0).collect();
-    Brain { memory, code }
+    if brains
+        .iter()
+        .all(|b| b.color_array() == brains[0].color_array())
+    {
+        Brain {
+            color: brains[0].color,
+            memory,
+            code,
+        }
+    } else {
+        let mut rng = rand::thread_rng();
+        Brain {
+            color: Color::from_rgb(rng.gen(), rng.gen(), rng.gen()),
+            memory,
+            code,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Brain {
+    color: Color,
     memory: ArrayVec<[f64; NUM_STATE]>,
     code: Arc<Dna>,
 }
 
 impl Brain {
+    fn color_array(&self) -> [f32; 3] {
+        [self.color.r, self.color.g, self.color.b]
+    }
+
+    pub fn color(&self) -> Color {
+        self.color
+    }
+
     pub fn decide(&mut self, inputs: &[f64]) -> Decision {
         let mut decision = Decision::Nothing;
         let mut entries = self.code.entries.clone();
@@ -53,7 +79,12 @@ impl Distribution<Brain> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Brain {
         let memory = std::iter::repeat(0.0).collect();
         let code = Arc::new(rng.gen());
-        Brain { memory, code }
+        let color = Color::from_rgb(rng.gen(), rng.gen(), rng.gen());
+        Brain {
+            color,
+            memory,
+            code,
+        }
     }
 }
 

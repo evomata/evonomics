@@ -101,7 +101,7 @@ impl<'a> Application for EvonomicsWorld {
                 speed_slider: Default::default(),
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
-                speed: 30,
+                speed: 1,
                 next_speed: None,
             },
             Command::batch(vec![
@@ -133,11 +133,7 @@ impl<'a> Application for EvonomicsWorld {
                 self.is_running_sim = false;
             }
             Message::SpeedChanged(new_speed) => {
-                if self.is_running_sim {
-                    self.next_speed = Some(new_speed.round() as usize);
-                } else {
-                    self.speed = new_speed.round() as usize;
-                }
+                self.speed = new_speed as usize;
             }
             Message::ToggleSim => {
                 self.is_running_sim = !self.is_running_sim;
@@ -147,8 +143,9 @@ impl<'a> Application for EvonomicsWorld {
             }
             Message::Tick => {
                 let mut sim_tx = self.sim_tx.clone();
+                let speed = self.speed;
                 return Command::perform(
-                    async move { sim_tx.send(sim::ToSim::Tick(1)).await },
+                    async move { sim_tx.send(sim::ToSim::Tick(speed)).await },
                     |res| {
                         res.map(|_| Message::Null)
                             .expect("sim_tx ended unexpectedly")
@@ -163,8 +160,7 @@ impl<'a> Application for EvonomicsWorld {
     // queue tick in update function regularly
     fn subscription(&self) -> Subscription<Message> {
         if self.is_running_sim {
-            time::every(Duration::from_millis((1000.0 / self.speed as f64) as u64))
-                .map(|_| Message::Tick)
+            time::every(Duration::from_millis(66)).map(|_| Message::Tick)
         } else {
             Subscription::none()
         }
@@ -211,7 +207,7 @@ impl<'a> Application for EvonomicsWorld {
                                                         .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
                                                             .on_press( Message::ToggleSim ) ) )
                             .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ) )
-                            .push( Text::new(format!("{} Ticks/s", speed) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
+                            .push( Text::new(format!("{} Ticks/frame (fps 30)", speed) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
                             .push( Space::new(Length::Fill, Length::Shrink) )
                             .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
                                 .on_press( Message::ToggleGrid ) )

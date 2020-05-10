@@ -201,7 +201,7 @@ fn cap_color(n: f32) -> f32 {
 impl Cell {
     fn color(&self) -> Color {
         if self.brain.is_some() {
-            Color::from_rgb(1.0, 1.0, 1.0)
+            self.brain.as_ref().unwrap().color()
         } else if self.wall {
             Color::from_rgb(1.0, 0.0, 0.0)
         } else {
