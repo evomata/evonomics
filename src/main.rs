@@ -87,7 +87,7 @@ impl<'a> Application for EvonomicsWorld {
     type Flags = ();
 
     fn new(_: ()) -> (EvonomicsWorld, Command<Self::Message>) {
-        let (sim_tx, sim_rx, sim_runner) = sim::run_sim(500, 1);
+        let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1);
         (
             EvonomicsWorld {
                 grid: Default::default(),
@@ -142,15 +142,8 @@ impl<'a> Application for EvonomicsWorld {
                 self.grid.toggle_lines();
             }
             Message::Tick => {
-                let mut sim_tx = self.sim_tx.clone();
-                let speed = self.speed;
-                return Command::perform(
-                    async move { sim_tx.send(sim::ToSim::Tick(speed)).await },
-                    |res| {
-                        res.map(|_| Message::Null)
-                            .expect("sim_tx ended unexpectedly")
-                    },
-                );
+                // If the channel is full, dont send it.
+                self.sim_tx.try_send(sim::ToSim::Tick(self.speed)).ok();
             }
             Message::Null => {}
         }
