@@ -15,6 +15,19 @@ const MAX_EXECUTE: usize = 128;
 const INITIAL_GENOME_SCALE: f64 = 256.0;
 const INITIAL_ENTRIES_SCALE: f64 = 64.0;
 
+fn random_color() -> Color {
+    use palette::*;
+    let mut rng = rand::thread_rng();
+    // Dont allow the color to be green or red.
+    let hsv = Hsv::new(
+        RgbHue::from_degrees(rng.gen::<f32>() * 140.0 + 180.0),
+        rng.gen(),
+        1.0,
+    );
+    let rgb = Srgb::<f32>::from_hsv(hsv);
+    Color::from_rgb(rgb.red, rgb.green, rgb.blue)
+}
+
 pub fn combine(brains: impl IntoIterator<Item = Brain>) -> Brain {
     let brains = brains.into_iter().collect_vec();
     let code = Arc::new(crossover(brains.iter().map(|b| (*b.code).clone())));
@@ -29,9 +42,8 @@ pub fn combine(brains: impl IntoIterator<Item = Brain>) -> Brain {
             code,
         }
     } else {
-        let mut rng = rand::thread_rng();
         Brain {
-            color: Color::from_rgb(rng.gen(), rng.gen(), rng.gen()),
+            color: random_color(),
             memory,
             code,
         }
@@ -79,7 +91,7 @@ impl Distribution<Brain> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Brain {
         let memory = std::iter::repeat(0.0).collect();
         let code = Arc::new(rng.gen());
-        let color = Color::from_rgb(rng.gen(), rng.gen(), rng.gen());
+        let color = random_color();
         Brain {
             color,
             memory,
