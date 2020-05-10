@@ -102,7 +102,7 @@ fn crossover(dnas: impl IntoIterator<Item = Dna>) -> Dna {
         let off_by = highest_num_genes - genes.len();
         // Distribute empty genes randomly.
         for _ in 0..off_by {
-            let position = thread_rng.gen_range(0, genes.len());
+            let position = thread_rng.gen_range(0, genes.len() + 1);
             genes.insert(position, vec![]);
         }
     }
