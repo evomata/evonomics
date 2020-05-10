@@ -11,7 +11,7 @@ use iced::{
 };
 
 const CELL_SIZE: usize = 20;
-pub const SIDE: usize = 1024;
+pub const SIDE: usize = 512;
 
 const AVERAGING_COUNT: usize = 15;
 
