@@ -356,8 +356,10 @@ impl Region {
         first_column..=first_column + visible_columns
     }
 
-    fn contained(&self, i: usize, j: usize) -> bool {
-        self.rows().contains(&i) && self.columns().contains(&j)
+    fn contained(&self, _i: usize, _j: usize) -> bool {
+        // self.rows().contains(&i) && self.columns().contains(&j)
+        // FIXME
+        true
     }
 }
 
