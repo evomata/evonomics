@@ -101,7 +101,7 @@ impl<'a> Application for EvonomicsWorld {
                 speed_slider: Default::default(),
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
-                speed: 16,
+                speed: 30,
                 next_speed: None,
             },
             Command::batch(vec![
