@@ -268,7 +268,7 @@ impl canvas::Program<()> for Grid {
                     "{} cell{} @ {} Ms/Tick, {:.3} Ticks/s.. Queued Ticks: {}",
                     self.view.cells,
                     if self.view.cells == 1 { "" } else { "s" },
-                    seconds_per_tick / 1000.0,
+                    seconds_per_tick * 1000.0,
                     seconds_per_tick.recip(),
                     self.last_queued_ticks
                 ),
