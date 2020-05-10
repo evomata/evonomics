@@ -21,7 +21,7 @@ fn random_color() -> Color {
     // Dont allow the color to be green or red.
     let hsv = Hsv::new(
         RgbHue::from_degrees(rng.gen::<f32>() * 140.0 + 180.0),
-        rng.gen(),
+        rng.gen::<f32>() * 0.5 + 0.5,
         1.0,
     );
     let rgb = Srgb::<f32>::from_hsv(hsv);
