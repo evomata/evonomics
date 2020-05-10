@@ -150,12 +150,15 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             }
 
             // Handle brain movement.
-            let mut brain_moves = moves.clone().iter().filter(|m| m.brain.is_some());
-            if brain_moves.clone().count() >= 1 && cell.brain.is_some() {
-                cell.brain = None;
+            let mut brain_moves = moves.clone().iter().flat_map(|m| m.brain);
+            if brain_moves.clone().count() + cell.brain.is_some() as usize >= 2 {
+                // Brains that enter the same space are combined together.
+                cell.brain = Some(brain::combine(
+                    cell.brain.clone().into_iter().chain(brain_moves),
+                ));
             } else if brain_moves.clone().count() == 1 {
                 let m = brain_moves.next().unwrap();
-                cell.brain = m.brain;
+                cell.brain = Some(m);
             }
 
             // Handle food movement.

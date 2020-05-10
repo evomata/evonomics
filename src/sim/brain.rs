@@ -1,5 +1,6 @@
 use arrayvec::ArrayVec;
 use gridsim::moore::MooreDirection;
+use itertools::Itertools;
 use rand::{
     distributions::{Distribution, Standard},
     seq::SliceRandom,
@@ -12,6 +13,13 @@ const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 128;
 const INITIAL_GENOME_SCALE: f64 = 256.0;
 const INITIAL_ENTRIES_SCALE: f64 = 64.0;
+
+pub fn combine(brains: impl IntoIterator<Item = Brain>) -> Brain {
+    let brains = brains.into_iter().collect_vec();
+    let code = Arc::new(crossover(brains.iter().map(|b| (*b.code).clone())));
+    let memory = std::iter::repeat(0.0).collect();
+    Brain { memory, code }
+}
 
 #[derive(Clone, Debug)]
 pub struct Brain {
@@ -49,7 +57,71 @@ impl Distribution<Brain> for Standard {
     }
 }
 
-#[derive(Clone, Debug)]
+fn split_points<'a, T>(points: &'a [usize], items: &'a [T]) -> impl Iterator<Item = &'a [T]> {
+    // If zero is already in there or if nothing is in the points at all, we dont want to add a zero.
+    (if points.first().map(|&n| n != 0).unwrap_or(false) {
+        Some(0)
+    } else {
+        None
+    })
+    .into_iter()
+    .chain(points.iter().copied())
+    .chain(std::iter::once(items.len()))
+    .tuple_windows()
+    .map(move |(a, b)| &items[a..b])
+}
+
+fn crossover(dnas: impl IntoIterator<Item = Dna>) -> Dna {
+    let mut thread_rng = rand::thread_rng();
+    let mut dnas: Vec<Dna> = dnas.into_iter().collect();
+
+    // First shuffle the DNA to avoid bias.
+    dnas.shuffle(&mut thread_rng);
+
+    // Now we want to turn the DNA into "genes", for which there may be an unequal number on each DNA.
+    let mut genes: Vec<Vec<Vec<Codon>>> = dnas
+        .into_iter()
+        .map(|dna| {
+            // Entries are always sorted. Extract all the sequence ranges in the DNA (genes).
+            split_points(&dna.entries, &dna.sequence)
+                .map(|s| s.to_vec())
+                .collect_vec()
+        })
+        .collect_vec();
+
+    // Now we need to figure out the longest number of genes.
+    let highest_num_genes = genes
+        .iter()
+        .map(|g| g.len())
+        .max()
+        .expect("cant crossover no cells");
+
+    // Now we need to pad each one of the genes to be of this length.
+    for genes in &mut genes {
+        // Figure out how many genes need to be added.
+        let off_by = highest_num_genes - genes.len();
+        // Distribute empty genes randomly.
+        for _ in 0..off_by {
+            let position = thread_rng.gen_range(0, genes.len());
+            genes.insert(position, vec![]);
+        }
+    }
+
+    // Now perform crossover by cycling beteween each DNA and taking a gene in order.
+    let mut dna = Dna::default();
+    for i in 0..highest_num_genes {
+        let which = i % genes.len();
+        let gene = &genes[which][i][..];
+        if !gene.is_empty() {
+            let position = dna.sequence.len();
+            dna.sequence.extend_from_slice(gene);
+            dna.entries.push(position);
+        }
+    }
+    dna
+}
+
+#[derive(Clone, Debug, Default)]
 struct Dna {
     sequence: Vec<Codon>,
     entries: Vec<usize>,
@@ -87,8 +159,12 @@ impl Dna {
         if !self.sequence.is_empty() && rng.gen_bool(0.5) {
             // Add an entry.
             let position = rng.gen_range(0, self.entries.len() + 1);
-            self.entries
-                .insert(position, rng.gen_range(0, self.sequence.len()));
+            // Do not add it if it is not unique.
+            if !self.entries.contains(&position) {
+                self.entries
+                    .insert(position, rng.gen_range(0, self.sequence.len()));
+                self.entries.sort_unstable();
+            }
         } else if !self.entries.is_empty() {
             // Remove an entry.
             let position = rng.gen_range(0, self.entries.len());
@@ -174,9 +250,12 @@ impl Distribution<Dna> for Standard {
                 vec![]
             } else {
                 let entries_len = (rng.sample::<f64, _>(Exp1) * INITIAL_ENTRIES_SCALE) as usize;
-                (0..entries_len)
+                let mut entries: Vec<usize> = (0..entries_len)
                     .map(|_| rng.gen_range(0, sequence_len))
-                    .collect()
+                    .unique()
+                    .collect();
+                entries.sort_unstable();
+                entries
             }
         };
         Dna { sequence, entries }
