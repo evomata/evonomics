@@ -18,7 +18,7 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 
 mod brain;
 
-const CELL_SPAWN_PROBABILITY: f64 = 0.000001;
+const CELL_SPAWN_PROBABILITY: f64 = 0.0000001;
 const SPAWN_FOOD: usize = 16;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.05;
 const MUTATE_PROBABILITY: f64 = 0.001;
