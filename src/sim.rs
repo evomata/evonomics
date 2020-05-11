@@ -34,7 +34,6 @@ lazy_static::lazy_static! {
     static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0000001).unwrap();
 }
 
-// Langton's Ant
 enum Evonomics {}
 
 impl<'a> gridsim::Sim<'a> for Evonomics {
