@@ -12,6 +12,14 @@ use iced::{
 };
 use std::time::Duration;
 
+std::thread_local! {
+    pub static RNG: rand::rngs::ThreadRng = rand::thread_rng();
+}
+
+unsafe fn rng() -> &'static mut rand::rngs::ThreadRng {
+    RNG.with(|rng| std::mem::transmute(rng as *const rand::rngs::ThreadRng))
+}
+
 pub fn main() {
     EvonomicsWorld::run(Settings {
         antialiasing: true,
