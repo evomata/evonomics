@@ -29,7 +29,7 @@ const NOISE_FREQ: f64 = 0.02;
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
 lazy_static::lazy_static! {
-    static ref FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+    static ref FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
     static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
     static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0000001).unwrap();
 }
