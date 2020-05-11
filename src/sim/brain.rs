@@ -3,7 +3,7 @@ use gridsim::moore::MooreDirection;
 use iced::Color;
 use itertools::Itertools;
 use rand::{
-    distributions::{Distribution, Standard},
+    distributions::{Bernoulli, Distribution, Standard},
     seq::SliceRandom,
     Rng,
 };
@@ -15,9 +15,12 @@ const MAX_EXECUTE: usize = 128;
 const INITIAL_GENOME_SCALE: f64 = 256.0;
 const INITIAL_ENTRIES_SCALE: f64 = 64.0;
 
-fn random_color() -> Color {
+lazy_static::lazy_static! {
+    static ref HALF_CHANCE: Bernoulli = Bernoulli::new(0.5).unwrap();
+}
+
+fn random_color<R: Rng + ?Sized>(rng: &mut R) -> Color {
     use palette::*;
-    let mut rng = rand::thread_rng();
     // Dont allow the color to be green or red.
     let hue_rand = rng.gen::<f32>() * 240.0;
     let hsv = Hsv::new(
@@ -35,9 +38,9 @@ fn random_color() -> Color {
     Color::from_rgb(rgb.red, rgb.green, rgb.blue)
 }
 
-pub fn combine(brains: impl IntoIterator<Item = Brain>) -> Brain {
+pub fn combine(rng: &mut impl Rng, brains: impl IntoIterator<Item = Brain>) -> Brain {
     let brains = brains.into_iter().collect_vec();
-    let code = Arc::new(crossover(brains.iter().map(|b| (*b.code).clone())));
+    let code = Arc::new(crossover(rng, brains.iter().map(|b| (*b.code).clone())));
     let memory = std::iter::repeat(0.0).collect();
     if brains
         .iter()
@@ -50,7 +53,7 @@ pub fn combine(brains: impl IntoIterator<Item = Brain>) -> Brain {
         }
     } else {
         Brain {
-            color: random_color(),
+            color: random_color(rng),
             memory,
             code,
         }
@@ -73,10 +76,10 @@ impl Brain {
         self.color
     }
 
-    pub fn decide(&mut self, inputs: &[f64]) -> Decision {
+    pub fn decide(&mut self, rng: &mut impl Rng, inputs: &[f64]) -> Decision {
         let mut decision = Decision::Nothing;
         let mut entries = self.code.entries.clone();
-        entries.shuffle(&mut rand::thread_rng());
+        entries.shuffle(rng);
         for &entry in &entries {
             match self.code.execute(inputs, &self.memory, entry) {
                 Action::Write(pos, v) => {
@@ -89,8 +92,8 @@ impl Brain {
         decision
     }
 
-    pub fn mutate(&mut self) {
-        Arc::make_mut(&mut self.code).mutate();
+    pub fn mutate(&mut self, rng: &mut impl Rng) {
+        Arc::make_mut(&mut self.code).mutate(rng);
     }
 }
 
@@ -98,7 +101,7 @@ impl Distribution<Brain> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Brain {
         let memory = std::iter::repeat(0.0).collect();
         let code = Arc::new(rng.gen());
-        let color = random_color();
+        let color = random_color(rng);
         Brain {
             color,
             memory,
@@ -121,12 +124,11 @@ fn split_points<'a, T>(points: &'a [usize], items: &'a [T]) -> impl Iterator<Ite
     .map(move |(a, b)| &items[a..b])
 }
 
-fn crossover(dnas: impl IntoIterator<Item = Dna>) -> Dna {
-    let mut thread_rng = rand::thread_rng();
+fn crossover(rng: &mut impl Rng, dnas: impl IntoIterator<Item = Dna>) -> Dna {
     let mut dnas: Vec<Dna> = dnas.into_iter().collect();
 
     // First shuffle the DNA to avoid bias.
-    dnas.shuffle(&mut thread_rng);
+    dnas.shuffle(rng);
 
     // Now we want to turn the DNA into "genes", for which there may be an unequal number on each DNA.
     let mut genes: Vec<Vec<Vec<Codon>>> = dnas
@@ -152,7 +154,7 @@ fn crossover(dnas: impl IntoIterator<Item = Dna>) -> Dna {
         let off_by = highest_num_genes - genes.len();
         // Distribute empty genes randomly.
         for _ in 0..off_by {
-            let position = thread_rng.gen_range(0, genes.len() + 1);
+            let position = rng.gen_range(0, genes.len() + 1);
             genes.insert(position, vec![]);
         }
     }
@@ -178,10 +180,9 @@ struct Dna {
 }
 
 impl Dna {
-    fn mutate(&mut self) {
-        let mut rng = rand::thread_rng();
+    fn mutate(&mut self, rng: &mut impl Rng) {
         // Handle the creation and removal of codons.
-        if rng.gen_bool(0.5) {
+        if rng.sample(*HALF_CHANCE) {
             // Add a codon.
             let position = rng.gen_range(0, self.sequence.len() + 1);
             self.sequence.insert(position, rng.gen::<Codon>());
@@ -206,7 +207,7 @@ impl Dna {
         }
 
         // Handle the creation and removal of entry points.
-        if !self.sequence.is_empty() && rng.gen_bool(0.5) {
+        if !self.sequence.is_empty() && rng.sample(*HALF_CHANCE) {
             // Add an entry.
             let position = rng.gen_range(0, self.entries.len() + 1);
             // Do not add it if it is not unique.

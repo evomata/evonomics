@@ -1,3 +1,4 @@
+use crate::rng;
 use arrayvec::ArrayVec;
 use brain::{Brain, Decision};
 use futures::{
@@ -9,19 +10,16 @@ use gridsim::{moore::*, Neighborhood, SquareGrid};
 use iced::Color;
 use ndarray::Array2;
 use noise::NoiseFn;
-use rand::Rng;
+use rand::{distributions::Bernoulli, Rng};
 use rayon::prelude::*;
 use std::iter::once;
-use tokio::task::spawn_blocking;
+use tokio::task::block_in_place;
 
 type LifeContainer = SquareGrid<'static, Evonomics>;
 
 mod brain;
 
-const CELL_SPAWN_PROBABILITY: f64 = 0.0000001;
 const SPAWN_FOOD: usize = 1;
-const FOOD_SPAWN_PROBABILITY: f64 = 0.001;
-const MUTATE_PROBABILITY: f64 = 0.001;
 const MOVE_PENALTY: usize = 4;
 
 const LOWER_WALL_THRESH: f64 = -0.04;
@@ -29,6 +27,12 @@ const HIGHER_WALL_THRESH: f64 = 0.04;
 const NOISE_FREQ: f64 = 0.02;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
+
+lazy_static::lazy_static! {
+    static ref FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+    static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+    static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0000001).unwrap();
+}
 
 // Langton's Ant
 enum Evonomics {}
@@ -80,7 +84,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                     .collect();
                 // A promise is made here not to look at the brain of any other cell elsewhere.
                 let brain = unsafe { &mut *(brain as *const Brain as *mut Brain) };
-                brain.decide(&inputs)
+                brain.decide(unsafe { rng() }, &inputs)
             })
             .unwrap_or(Decision::Nothing);
 
@@ -141,7 +145,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
 
     fn update(cell: &mut Cell, diff: Diff, moves: Self::MoveNeighbors) {
         if !cell.wall {
-            let mut rng = rand::thread_rng();
+            let rng = unsafe { rng() };
             // Handle food reduction from diff.
             cell.food = cell.food.saturating_sub(diff.consume);
 
@@ -155,6 +159,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             if brain_moves.clone().count() + cell.brain.is_some() as usize >= 2 {
                 // Brains that enter the same space are combined together.
                 cell.brain = Some(brain::combine(
+                    &mut *rng,
                     cell.brain.clone().into_iter().chain(brain_moves),
                 ));
             } else if brain_moves.clone().count() == 1 {
@@ -167,17 +172,17 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
 
             // Handle mutation.
             if let Some(ref mut brain) = cell.brain {
-                if rng.gen_bool(MUTATE_PROBABILITY) {
-                    brain.mutate();
+                if rng.sample(*MUTATE_DISTRIBUTION) {
+                    brain.mutate(&mut *rng);
                 }
             }
 
             // Handle spawning.
-            if cell.brain.is_none() && rng.gen_bool(CELL_SPAWN_PROBABILITY) {
+            if cell.brain.is_none() && rng.sample(*CELL_SPAWN_DISTRIBUTION) {
                 cell.brain = Some(rng.gen());
                 cell.food += SPAWN_FOOD;
             }
-            if rng.gen_bool(FOOD_SPAWN_PROBABILITY) {
+            if rng.sample(*FOOD_DISTRIBUTION) {
                 cell.food += 1;
             }
         }
@@ -240,8 +245,9 @@ pub fn run_sim(
         while let Some(oncoming) = oncoming.next().await {
             match oncoming {
                 ToSim::Tick(times) => {
-                    sim = spawn_blocking(move || sim.tick(times)).await.unwrap();
-                    outgoing.send(FromSim::View(sim.view())).await.unwrap();
+                    sim = block_in_place(move || sim.tick(times));
+                    let view = block_in_place(|| sim.view());
+                    outgoing.send(FromSim::View(view)).await.unwrap();
                 }
             }
         }
