@@ -336,7 +336,7 @@ impl Distribution<Codon> for Standard {
             1 => Codon::Sub,
             2 => Codon::Mul,
             3 => Codon::Div,
-            4 => Codon::Literal(rng.gen()),
+            4 => Codon::Literal(rng.gen::<f64>() * 4.0 - 2.0),
             5 => Codon::Less,
             6 => Codon::Copy(rng.gen()),
             7 => Codon::Read(rng.gen::<u32>() % NUM_STATE as u32),
