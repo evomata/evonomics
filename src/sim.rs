@@ -19,7 +19,6 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 mod brain;
 
 const CELL_SPAWN_PROBABILITY: f64 = 0.0000001;
-// const CELL_SPAWN_PROBABILITY: f64 = 0.0001;
 const SPAWN_FOOD: usize = 1;
 const FOOD_SPAWN_PROBABILITY: f64 = 0.001;
 const MUTATE_PROBABILITY: f64 = 0.001;
@@ -43,6 +42,18 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
     type MoveNeighbors = MooreNeighbors<Move>;
 
     fn step(cell: &Cell, neighbors: Self::Neighbors) -> (Diff, Self::MoveNeighbors) {
+        if cell.brain.is_none() || cell.food == 0 {
+            return (
+                Diff {
+                    consume: 0,
+                    moved: true,
+                },
+                MooreNeighbors::new(|_| Move {
+                    food: 0,
+                    brain: None,
+                }),
+            );
+        }
         // Closure for just existing (consuming food and nothing happening).
         let just_exist = || {
             (
@@ -56,18 +67,6 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                 }),
             )
         };
-        if cell.food == 0 || cell.brain.is_none() {
-            return (
-                Diff {
-                    consume: 0,
-                    moved: true,
-                },
-                MooreNeighbors::new(|_| Move {
-                    food: 0,
-                    brain: None,
-                }),
-            );
-        }
         let decision = cell
             .brain
             .as_ref()
@@ -142,6 +141,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
 
     fn update(cell: &mut Cell, diff: Diff, moves: Self::MoveNeighbors) {
         if !cell.wall {
+            let mut rng = rand::thread_rng();
             // Handle food reduction from diff.
             cell.food = cell.food.saturating_sub(diff.consume);
 
@@ -167,17 +167,17 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
 
             // Handle mutation.
             if let Some(ref mut brain) = cell.brain {
-                if rand::thread_rng().gen_bool(MUTATE_PROBABILITY) {
+                if rng.gen_bool(MUTATE_PROBABILITY) {
                     brain.mutate();
                 }
             }
 
             // Handle spawning.
-            if cell.brain.is_none() && rand::thread_rng().gen_bool(CELL_SPAWN_PROBABILITY) {
-                cell.brain = Some(rand::thread_rng().gen());
+            if cell.brain.is_none() && rng.gen_bool(CELL_SPAWN_PROBABILITY) {
+                cell.brain = Some(rng.gen());
                 cell.food += SPAWN_FOOD;
             }
-            if rand::thread_rng().gen_bool(FOOD_SPAWN_PROBABILITY) {
+            if rng.gen_bool(FOOD_SPAWN_PROBABILITY) {
                 cell.food += 1;
             }
         }
