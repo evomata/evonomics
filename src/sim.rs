@@ -13,7 +13,7 @@ use noise::NoiseFn;
 use rand::{distributions::Bernoulli, Rng};
 use rayon::prelude::*;
 use std::iter::once;
-use tokio::task::spawn_blocking;
+use tokio::task::block_in_place;
 
 type LifeContainer = SquareGrid<'static, Evonomics>;
 
@@ -245,8 +245,9 @@ pub fn run_sim(
         while let Some(oncoming) = oncoming.next().await {
             match oncoming {
                 ToSim::Tick(times) => {
-                    sim = spawn_blocking(move || sim.tick(times)).await.unwrap();
-                    outgoing.send(FromSim::View(sim.view())).await.unwrap();
+                    sim = block_in_place(move || sim.tick(times));
+                    let view = block_in_place(|| sim.view());
+                    outgoing.send(FromSim::View(view)).await.unwrap();
                 }
             }
         }
