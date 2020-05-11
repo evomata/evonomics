@@ -38,12 +38,10 @@ struct EvonomicsWorld {
     load_save_button: button::State,
     save_simulation_button: button::State,
     toggle_run_button: button::State,
-    halt_sim_button: button::State,
     toggle_grid_button: button::State,
     speed_slider: slider::State,
     menu_state: MenuState,
     is_running_sim: bool,
-    // 1k/speed = number of ms to delay before queuing ticks
     speed: usize,
     next_speed: Option<usize>,
 }
@@ -98,6 +96,13 @@ impl<'a> Application for EvonomicsWorld {
     // initialization data for application
     type Flags = ();
 
+// ACTUALLY that won't work.  sim_runner and sim_rx given to pipeline..  need to construct those parts done here
+//      and then sep. construct the SIDE
+// TODO make all set by runsim and grid Opt
+//      only set them when play selected
+//      make SIDE in grid non-const
+//      add slider for SIDE in front menu
+//    ..make individual sliders for fps and gfps
     fn new(_: ()) -> (EvonomicsWorld, Command<Self::Message>) {
         let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1);
         (
@@ -108,7 +113,6 @@ impl<'a> Application for EvonomicsWorld {
                 load_save_button: Default::default(),
                 save_simulation_button: Default::default(),
                 toggle_run_button: Default::default(),
-                halt_sim_button: Default::default(),
                 toggle_grid_button: Default::default(),
                 speed_slider: Default::default(),
                 menu_state: MenuState::MainMenu,
@@ -215,10 +219,8 @@ impl<'a> Application for EvonomicsWorld {
                             .push( Text::new(format!("{} Ticks/frame (fps {})", speed, FRAMES_PER_SECOND) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
                             .push( Space::new(Length::Fill, Length::Shrink) )
                             .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
-                                .on_press( Message::ToggleGrid ) )
-                            .push( Button::new( &mut self.halt_sim_button, Text::new("Main Menu (Will Pause)") ).min_width(BUTTON_SIZE)
-                                .on_press( Message::MainView ) )
-                            .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
+                                .on_press( Message::ToggleGrid ) ) )
+                            // TODO, .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
                             // TODO, requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
                         .push( self.grid.view().map(|_| Message::Null) ) )
                     .into()
