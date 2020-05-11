@@ -33,7 +33,7 @@ pub fn main() {
 
 struct EvonomicsWorld {
     grid: grid::Grid,
-    sim_tx: Sender<sim::ToSim>,
+    sim_tx: Option<Sender<sim::ToSim>>,
     run_simulation_button: button::State,
     load_save_button: button::State,
     save_simulation_button: button::State,
@@ -96,19 +96,11 @@ impl<'a> Application for EvonomicsWorld {
     // initialization data for application
     type Flags = ();
 
-// ACTUALLY that won't work.  sim_runner and sim_rx given to pipeline..  need to construct those parts done here
-//      and then sep. construct the SIDE
-// TODO make all set by runsim and grid Opt
-//      only set them when play selected
-//      make SIDE in grid non-const
-//      add slider for SIDE in front menu
-//    ..make individual sliders for fps and gfps
     fn new(_: ()) -> (EvonomicsWorld, Command<Self::Message>) {
-        let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1);
         (
             EvonomicsWorld {
                 grid: Default::default(),
-                sim_tx,
+                sim_tx: None,
                 run_simulation_button: Default::default(),
                 load_save_button: Default::default(),
                 save_simulation_button: Default::default(),
@@ -120,10 +112,7 @@ impl<'a> Application for EvonomicsWorld {
                 speed: 1,
                 next_speed: None,
             },
-            Command::batch(vec![
-                Command::perform(sim_runner, |_| panic!()),
-                reciever_command(sim_rx),
-            ]),
+            Command::none()
         )
     }
 
@@ -143,6 +132,15 @@ impl<'a> Application for EvonomicsWorld {
             Message::SimView => {
                 self.menu_state = MenuState::SimMenu;
                 self.is_running_sim = true;
+                
+                let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1);
+
+                self.sim_tx = Some(sim_tx);
+                
+                return Command::batch(
+                    vec![ 
+                        Command::perform( sim_runner, |_| panic!() ),
+                        reciever_command(sim_rx) ] );
             }
             Message::MainView => {
                 self.menu_state = MenuState::MainMenu;
@@ -158,8 +156,13 @@ impl<'a> Application for EvonomicsWorld {
                 self.grid.toggle_lines();
             }
             Message::Tick => {
-                // If the channel is full, dont send it.
-                self.sim_tx.try_send(sim::ToSim::Tick(self.speed)).ok();
+                match self.sim_tx {
+                    Some(ref mut tx) => { 
+                        // If the channel is full, dont send it.
+                        tx.try_send(sim::ToSim::Tick(self.speed)).ok(); 
+                    },
+                    None => {},
+                }
             }
             Message::Null => {}
         }
