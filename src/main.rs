@@ -10,14 +10,15 @@ use iced::{
     HorizontalAlignment, Length, Row, Settings, Slider, Space, Subscription, Text,
     VerticalAlignment,
 };
+use rand::SeedableRng;
 use std::time::Duration;
 
 std::thread_local! {
-    pub static RNG: rand::rngs::ThreadRng = rand::thread_rng();
+    pub static RNG: rand_chacha::ChaCha8Rng = rand_chacha::ChaCha8Rng::from_entropy();
 }
 
-unsafe fn rng() -> &'static mut rand::rngs::ThreadRng {
-    RNG.with(|rng| std::mem::transmute(rng as *const rand::rngs::ThreadRng))
+unsafe fn rng() -> &'static mut rand_chacha::ChaCha8Rng {
+    RNG.with(|rng| std::mem::transmute(rng as *const rand_chacha::ChaCha8Rng))
 }
 
 pub fn main() {

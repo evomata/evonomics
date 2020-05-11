@@ -598,6 +598,7 @@ dependencies = [
  "noise",
  "palette",
  "rand 0.7.3",
+ "rand_chacha 0.2.2",
  "rand_distr",
  "rand_pcg 0.2.1",
  "rayon",
