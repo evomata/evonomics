@@ -11,8 +11,6 @@ use iced::{
 };
 
 const CELL_SIZE: usize = 20;
-pub const SIDE: usize = 1024;
-const MIN_SCALING: f32 = 0.105 * 512.0 / SIDE as f32;
 const MAX_SCALING: f32 = 2.0;
 
 const AVERAGING_COUNT: usize = 15;
@@ -29,6 +27,7 @@ impl From<sim::View> for Message {
 }
 
 pub struct Grid {
+    min_scaling: f32,
     view: sim::View,
     interaction: Interaction,
     life_cache: Cache,
@@ -42,14 +41,16 @@ pub struct Grid {
     last_queued_ticks: usize,
 }
 
-impl<'a> Default for Grid {
-    fn default() -> Self {
+impl Grid {
+    pub fn new(dim: usize) -> Self {
+        let initial_pos: f32 = -((CELL_SIZE * dim) as f32) * 0.5;
         Self {
+            min_scaling: 0.105 * 512.0 / dim as f32,
             view: sim::View::default(),
             interaction: Interaction::None,
             life_cache: Cache::default(),
             grid_cache: Cache::default(),
-            translation: Vector::new(Self::INITIAL_POS, Self::INITIAL_POS),
+            translation: Vector::new(initial_pos, initial_pos),
             scaling: 1.0,
             show_lines: true,
             tick_durations: vec![].into(),
@@ -57,10 +58,6 @@ impl<'a> Default for Grid {
             last_queued_ticks: 0,
         }
     }
-}
-
-impl Grid {
-    const INITIAL_POS: f32 = -((CELL_SIZE * SIDE) as f32) * 0.5;
 
     pub fn update(&mut self, message: Message) {
         match message {
@@ -159,13 +156,13 @@ impl canvas::Program<()> for Grid {
                 }
                 mouse::Event::WheelScrolled { delta } => match delta {
                     mouse::ScrollDelta::Lines { y, .. } | mouse::ScrollDelta::Pixels { y, .. } => {
-                        if y < 0.0 && self.scaling > MIN_SCALING
+                        if y < 0.0 && self.scaling > self.min_scaling
                             || y > 0.0 && self.scaling < MAX_SCALING
                         {
                             let old_scaling = self.scaling;
 
                             self.scaling = (self.scaling * (1.0 + y / 30.0))
-                                .max(MIN_SCALING)
+                                .max(self.min_scaling)
                                 .min(MAX_SCALING);
 
                             if let Some(cursor_to_center) = cursor.position_from(bounds.center()) {

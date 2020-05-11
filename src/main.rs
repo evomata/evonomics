@@ -32,7 +32,7 @@ pub fn main() {
 }
 
 struct EvonomicsWorld {
-    grid: grid::Grid,
+    grid: Option<grid::Grid>,
     sim_tx: Option<Sender<sim::ToSim>>,
     run_simulation_button: button::State,
     load_save_button: button::State,
@@ -40,9 +40,11 @@ struct EvonomicsWorld {
     toggle_run_button: button::State,
     toggle_grid_button: button::State,
     speed_slider: slider::State,
+    speed: usize,
+    dimension_slider: slider::State,
+    dimension: usize,
     menu_state: MenuState,
     is_running_sim: bool,
-    speed: usize,
     next_speed: Option<usize>,
 }
 
@@ -63,6 +65,7 @@ enum Message {
     SimView,
     MainView,
     SpeedChanged(f32),
+    DimensionSet(f32),
     ToggleSim,
     ToggleGrid,
     Tick,
@@ -99,7 +102,7 @@ impl<'a> Application for EvonomicsWorld {
     fn new(_: ()) -> (EvonomicsWorld, Command<Self::Message>) {
         (
             EvonomicsWorld {
-                grid: Default::default(),
+                grid: None,
                 sim_tx: None,
                 run_simulation_button: Default::default(),
                 load_save_button: Default::default(),
@@ -107,9 +110,11 @@ impl<'a> Application for EvonomicsWorld {
                 toggle_run_button: Default::default(),
                 toggle_grid_button: Default::default(),
                 speed_slider: Default::default(),
+                speed: 1,
+                dimension_slider: Default::default(),
+                dimension: 512,
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
-                speed: 1,
                 next_speed: None,
             },
             Command::none()
@@ -125,7 +130,10 @@ impl<'a> Application for EvonomicsWorld {
         match message {
             Message::FromSim(from_sim, stream) => {
                 match from_sim {
-                    sim::FromSim::View(view) => self.grid.update(view.into()),
+                    sim::FromSim::View(view) => match self.grid {
+                        Some(ref mut grd) => { grd.update( view.into() ) },
+                        None => {}
+                    }
                 }
                 return reciever_command(stream);
             }
@@ -133,9 +141,10 @@ impl<'a> Application for EvonomicsWorld {
                 self.menu_state = MenuState::SimMenu;
                 self.is_running_sim = true;
                 
-                let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1);
+                let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1, self.dimension);
 
                 self.sim_tx = Some(sim_tx);
+                self.grid = Some( grid::Grid::new( self.dimension ) );
                 
                 return Command::batch(
                     vec![ 
@@ -149,11 +158,17 @@ impl<'a> Application for EvonomicsWorld {
             Message::SpeedChanged(new_speed) => {
                 self.speed = new_speed as usize;
             }
+            Message::DimensionSet(new_dim) => {
+                self.dimension = new_dim as usize;
+            }
             Message::ToggleSim => {
                 self.is_running_sim = !self.is_running_sim;
             }
             Message::ToggleGrid => {
-                self.grid.toggle_lines();
+                match self.grid {
+                    Some(ref mut grd) => { grd.toggle_lines() },
+                    None => {}
+                }
             }
             Message::Tick => {
                 match self.sim_tx {
@@ -190,42 +205,56 @@ impl<'a> Application for EvonomicsWorld {
                     .spacing(60)
                     .align_items(Align::Center)
                     .push(Text::new("Evonomics").size(50))
-                    .push(
-                        Button::new(
-                            &mut self.run_simulation_button,
-                            Text::new("Run Simulation")
-                                .horizontal_alignment(HorizontalAlignment::Center),
+                    .push( 
+                        Row::new()
+                        .spacing(100)
+                        .push(
+                            Column::new()
+                                .spacing(10)
+                                .max_width(400)
+                                .align_items( Align::Center )
+                                .push( Button::new( &mut self.run_simulation_button, Text::new("Run Simulation").horizontal_alignment(HorizontalAlignment::Center) ).min_width(BUTTON_SIZE)
+                                        .on_press(Message::SimView) 
+                                )
+                                .push( Slider::new( &mut self.dimension_slider, 32.0..=4096.0, self.dimension as f32, Message::DimensionSet ) )
+                                .push( Text::new(format!("Sim Dimension {} (cells {})", self.dimension, self.dimension*self.dimension) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
                         )
-                        .min_width(BUTTON_SIZE)
-                        .on_press(Message::SimView),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.load_save_button,
-                            Text::new("Load Save")
-                                .horizontal_alignment(HorizontalAlignment::Center),
-                        )
-                        .min_width(BUTTON_SIZE),
+                        .push( Button::new( &mut self.load_save_button, Text::new("Load Save").horizontal_alignment(HorizontalAlignment::Center) ).min_width(BUTTON_SIZE) )
                     )
                     .into()
                 // TODO: .push(settings:labels&radios&sliders) resource list with scarcity sliders, radio button for market entity, radio button for distance trading, slider for trade penalty, slider for carry capacities, slider for barter penalty
             }
             MenuState::SimMenu => {
                 Row::new()
-                    .push( Row::new().padding(10)
-                        .push(
-                            Box::new( Column::new().spacing(10).max_width(220)
-                                                        .push( Button::new( &mut self.save_simulation_button, Text::new("save") ).min_width(BUTTON_SIZE) )
-                                                        .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
-                                                            .on_press( Message::ToggleSim ) ) )
-                            .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ) )
-                            .push( Text::new(format!("{} Ticks/frame (fps {})", speed, FRAMES_PER_SECOND) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
-                            .push( Space::new(Length::Fill, Length::Shrink) )
-                            .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
-                                .on_press( Message::ToggleGrid ) ) )
+                    .push( 
+                        Row::new()
+                            .padding(10)
+                            .push(
+                                Box::new( 
+                                    Column::new()
+                                        .spacing(10)
+                                        .max_width(220)
+                                        .push( Button::new( &mut self.save_simulation_button, Text::new("save") ).min_width(BUTTON_SIZE) )
+                                        .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
+                                            .on_press(Message::ToggleSim) )
+                                )
+                                .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ) )
+                                .push( Text::new( format!("{} Ticks/frame (fps {})", speed, FRAMES_PER_SECOND) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
+                                .push( Space::new(Length::Fill, Length::Shrink) )
+                                .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
+                                    .on_press(Message::ToggleGrid) )
+                            )
                             // TODO, .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
                             // TODO, requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
-                        .push( self.grid.view().map(|_| Message::Null) ) )
+                            .push( 
+                                match self.grid {
+                                    Some(ref mut grd) => {
+                                        grd.view().map(|_| Message::Null) 
+                                    },
+                                    None => { panic!("unexpected entry to view without initializing grid") }
+                                }
+                            ) 
+                    )
                     .into()
             }
         }

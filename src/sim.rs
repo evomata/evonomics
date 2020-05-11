@@ -235,11 +235,12 @@ pub struct Diff {
 pub fn run_sim(
     inbound: usize,
     outbound: usize,
+    dimension: usize,
 ) -> (Sender<ToSim>, Receiver<FromSim>, impl Future<Output = ()>) {
     let (oncoming_tx, mut oncoming) = mpsc::channel(inbound);
     let (mut outgoing, outgoing_rx) = mpsc::channel(outbound);
 
-    let mut sim = Sim::new();
+    let mut sim = Sim::new(dimension);
     let task = async move {
         while let Some(oncoming) = oncoming.next().await {
             match oncoming {
@@ -281,8 +282,8 @@ pub struct Sim {
 }
 
 impl Sim {
-    fn new() -> Self {
-        let mut grid = SquareGrid::<Evonomics>::new(crate::grid::SIDE, crate::grid::SIDE);
+    fn new(dimension: usize) -> Self {
+        let mut grid = SquareGrid::<Evonomics>::new(dimension, dimension);
         let scaled = noise::ScalePoint::new(noise::OpenSimplex::new()).set_scale(1.4);
         let scale = noise::Constant::new(0.8);
         let noise_a = noise::Multiply::new(&scaled, &scale);
@@ -294,8 +295,8 @@ impl Sim {
         .set_scale(2.0);
         let source = noise::Min::new(&noise_a, &noise_b);
         for (ix, cell) in grid.get_cells_mut().iter_mut().enumerate() {
-            let x = (ix % crate::grid::SIDE) as f64;
-            let y = (ix / crate::grid::SIDE) as f64;
+            let x = (ix % dimension) as f64;
+            let y = (ix / dimension) as f64;
             let n = source.get([x * NOISE_FREQ, y * NOISE_FREQ]);
             if n > LOWER_WALL_THRESH && n < HIGHER_WALL_THRESH {
                 cell.wall = true;
