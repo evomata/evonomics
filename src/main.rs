@@ -13,6 +13,9 @@ use iced::{
 use rand::SeedableRng;
 use std::time::Duration;
 
+const MS_PER_FRAME: u64 = 66;
+const FRAMES_PER_SECOND: u64 = 1000 / MS_PER_FRAME;
+
 std::thread_local! {
     pub static RNG: rand_chacha::ChaCha8Rng = rand_chacha::ChaCha8Rng::from_entropy();
 }
@@ -162,7 +165,7 @@ impl<'a> Application for EvonomicsWorld {
     // queue tick in update function regularly
     fn subscription(&self) -> Subscription<Message> {
         if self.is_running_sim {
-            time::every(Duration::from_millis(66)).map(|_| Message::Tick)
+            time::every(Duration::from_millis(MS_PER_FRAME)).map(|_| Message::Tick)
         } else {
             Subscription::none()
         }
@@ -209,7 +212,7 @@ impl<'a> Application for EvonomicsWorld {
                                                         .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
                                                             .on_press( Message::ToggleSim ) ) )
                             .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ) )
-                            .push( Text::new(format!("{} Ticks/frame (fps 30)", speed) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
+                            .push( Text::new(format!("{} Ticks/frame (fps {})", speed, FRAMES_PER_SECOND) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
                             .push( Space::new(Length::Fill, Length::Shrink) )
                             .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
                                 .on_press( Message::ToggleGrid ) )
