@@ -48,14 +48,14 @@ pub fn combine(rng: &mut impl Rng, brains: impl IntoIterator<Item = Brain>) -> B
     {
         Brain {
             color: brains[rng.gen_range(0, brains.len())].color,
-            rotation: brains[rng.gen_range(0, brains.len())].rotation,
+            rotation: rng.gen_range(0, 4),
             memory,
             code,
         }
     } else {
         Brain {
             color: random_color(rng),
-            rotation: brains[rng.gen_range(0, brains.len())].rotation,
+            rotation: rng.gen_range(0, 4),
             memory,
             code,
         }
