@@ -19,7 +19,7 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 
 mod brain;
 
-const SPAWN_FOOD: usize = 2;
+const SPAWN_FOOD: usize = 16;
 /// Food penalty for moving. Keep this as a multiple of 2.
 const MOVE_PENALTY: usize = 2;
 
@@ -29,10 +29,15 @@ const NOISE_FREQ: f64 = 0.02;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
+const SOURCE_FOOD_SPAWN: usize = 100;
+
 lazy_static::lazy_static! {
-    static ref FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.008).unwrap();
+    // static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.008).unwrap();
+    static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0).unwrap();
+    static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
     static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0001).unwrap();
     static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.00001).unwrap();
+    static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
 }
 
 enum Evonomics {}
@@ -151,7 +156,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
     }
 
     fn update(cell: &mut Cell, diff: Diff, moves: Self::MoveNeighbors) {
-        if !cell.wall {
+        if cell.ty != CellType::Wall {
             let rng = unsafe { rng() };
             // Handle food reduction from diff.
             cell.food = cell.food.saturating_sub(diff.consume);
@@ -189,8 +194,14 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                 cell.brain = Some(rng.gen());
                 cell.food += SPAWN_FOOD;
             }
-            if rng.sample(*FOOD_DISTRIBUTION) {
-                cell.food += 1;
+            if cell.ty == CellType::Source {
+                if rng.sample(*SOURCE_FOOD_DISTRIBUTION) {
+                    cell.food += SOURCE_FOOD_SPAWN;
+                }
+            } else {
+                if rng.sample(*NORMAL_FOOD_DISTRIBUTION) {
+                    cell.food += 1;
+                }
             }
 
             // Handle signal.
@@ -203,12 +214,30 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum CellType {
+    Wall,
+    Source,
+    Empty,
+}
+
+#[derive(Clone, Debug)]
 pub struct Cell {
     pub food: usize,
-    pub wall: bool,
+    pub ty: CellType,
     pub signal: f64,
     pub brain: Option<Brain>,
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Self {
+            food: 0,
+            ty: CellType::Empty,
+            signal: 0.0,
+            brain: None,
+        }
+    }
 }
 
 fn cap_color(n: f32) -> f32 {
@@ -221,16 +250,19 @@ fn cap_color(n: f32) -> f32 {
 
 impl Cell {
     fn color(&self) -> Color {
-        if self.brain.is_some() {
-            self.brain.as_ref().unwrap().color()
-        } else if self.wall {
-            Color::from_rgb(0.4, 0.0, 0.0)
-        } else {
-            Color::from_rgb(
-                0.0,
-                cap_color(FOOD_COLOR_MULTIPLIER * self.food as f32),
-                0.0,
-            )
+        match self.ty {
+            CellType::Wall => Color::from_rgb(0.4, 0.0, 0.0),
+            CellType::Empty | CellType::Source => {
+                if self.brain.is_some() {
+                    self.brain.as_ref().unwrap().color()
+                } else {
+                    Color::from_rgb(
+                        0.0,
+                        cap_color(FOOD_COLOR_MULTIPLIER * self.food as f32),
+                        0.0,
+                    )
+                }
+            }
         }
     }
 }
@@ -312,12 +344,16 @@ impl Sim {
         )
         .set_scale(2.0);
         let source = noise::Min::new(&noise_a, &noise_b);
+        let rng = unsafe { rng() };
         for (ix, cell) in grid.get_cells_mut().iter_mut().enumerate() {
+            if rng.sample(*SOURCE_SPAWN_DISTRIBUTION) {
+                cell.ty = CellType::Source;
+            }
             let x = (ix % dimension) as f64;
             let y = (ix / dimension) as f64;
             let n = source.get([x * NOISE_FREQ, y * NOISE_FREQ]);
             if n > LOWER_WALL_THRESH && n < HIGHER_WALL_THRESH {
-                cell.wall = true;
+                cell.ty = CellType::Wall;
             }
         }
         Self {
