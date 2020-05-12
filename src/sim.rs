@@ -212,7 +212,7 @@ pub struct Cell {
 }
 
 fn cap_color(n: f32) -> f32 {
-    if n > 1.0 {
+    if n > 0.3 {
         0.3
     } else {
         n
