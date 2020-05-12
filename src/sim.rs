@@ -224,7 +224,7 @@ impl Cell {
         if self.brain.is_some() {
             self.brain.as_ref().unwrap().color()
         } else if self.wall {
-            Color::from_rgb(0.5, 0.0, 0.0)
+            Color::from_rgb(0.4, 0.0, 0.0)
         } else {
             Color::from_rgb(
                 0.0,
