@@ -78,7 +78,9 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                 let inputs: ArrayVec<[f64; 5]> = neighbors
                     .iter()
                     .flat_map(|n| {
-                        once(if n.brain.is_some() { 1.0 } else { 0.0 }).chain(once(n.food as f64))
+                        once(if n.brain.is_some() { 1.0 } else { 0.0 })
+                            .chain(once(n.food as f64))
+                            .chain(once(n.signal))
                     })
                     .chain(Some(cell.food as f64))
                     .collect();
@@ -185,6 +187,13 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             if rng.sample(*FOOD_DISTRIBUTION) {
                 cell.food += 1;
             }
+
+            // Handle signal.
+            if let Some(ref mut brain) = cell.brain {
+                cell.signal = brain.signal();
+            } else {
+                cell.signal = 0.0;
+            }
         }
     }
 }
@@ -193,6 +202,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
 pub struct Cell {
     pub food: usize,
     pub wall: bool,
+    pub signal: f64,
     pub brain: Option<Brain>,
 }
 

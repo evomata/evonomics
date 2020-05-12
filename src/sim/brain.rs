@@ -76,6 +76,10 @@ impl Brain {
         self.color
     }
 
+    pub fn signal(&self) -> f64 {
+        self.memory[0]
+    }
+
     pub fn decide(&mut self, rng: &mut impl Rng, inputs: &[f64]) -> Decision {
         let mut decision = Decision::Nothing;
         let mut entries = self.code.entries.clone();
