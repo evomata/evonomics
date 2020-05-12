@@ -35,7 +35,7 @@ pub struct Grid {
     translation: Vector,
     scaling: f32,
     show_lines: bool,
-    tick_durations: VecDeque<Duration>,
+    tick_durations: VecDeque<(Duration, usize)>,
     /// When a tick comes in, this is used to measure the elapsed time of the tick.
     tick_start: Instant,
     last_queued_ticks: usize,
@@ -66,7 +66,7 @@ impl Grid {
                 self.view = view;
                 let tick_duration = self.tick_start.elapsed();
                 self.tick_start = Instant::now();
-                self.tick_durations.push_front(tick_duration);
+                self.tick_durations.push_front( (tick_duration, self.view.ticks) );
                 self.tick_durations.truncate(AVERAGING_COUNT);
                 self.life_cache.clear();
             }
@@ -253,12 +253,13 @@ impl canvas::Program<()> for Grid {
                 });
             }
 
-            let seconds_per_tick = self
-                .tick_durations
-                .iter()
-                .map(|d| d.as_secs_f64())
-                .sum::<f64>()
-                / self.tick_durations.len() as f64;
+            let seconds_per_tick = {
+                let val = self
+                    .tick_durations
+                    .iter()
+                    .fold( (0f64, 0), |acc, (duration, ticks)| (duration.as_secs_f64() + acc.0, ticks + acc.1) );
+                val.0 / val.1 as f64
+            };
 
             frame.fill_text(Text {
                 content: format!(

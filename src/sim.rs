@@ -291,10 +291,12 @@ pub enum FromSim {
 pub struct View {
     pub colors: Array2<Color>,
     pub cells: usize,
+    pub ticks: usize,
 }
 
 pub struct Sim {
     grid: LifeContainer,
+    frames_elapsed: usize,
 }
 
 impl Sim {
@@ -318,10 +320,11 @@ impl Sim {
                 cell.wall = true;
             }
         }
-        Self { grid }
+        Self { grid: grid, frames_elapsed: 0 }
     }
 
     pub fn tick(mut self, times: usize) -> Self {
+        self.frames_elapsed=times;
         for _ in 0..times {
             self.grid.cycle();
         }
@@ -329,6 +332,7 @@ impl Sim {
     }
 
     pub fn view(&self) -> View {
+        let temp = self.frames_elapsed;
         View {
             colors: Array2::from_shape_vec(
                 (self.grid.get_height(), self.grid.get_width()),
@@ -339,7 +343,8 @@ impl Sim {
                     .collect::<Vec<Color>>(),
             )
             .unwrap(),
-            cells: 1,
+            cells: self.grid.get_cells().iter().fold( 0, |acc, cell| acc + if cell.brain.is_some() {1} else {0} ),
+            ticks: temp,
         }
     }
 }
