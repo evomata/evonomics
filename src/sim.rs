@@ -75,7 +75,10 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             .brain
             .as_ref()
             .map(|brain| {
-                let inputs: ArrayVec<[f64; 5]> = neighbors
+                const NEIGHBOR_INPUTS: usize = 3;
+                const SELF_INPUTS: usize = 1;
+                const INPUTS: usize = NEIGHBOR_INPUTS * 4 + SELF_INPUTS;
+                let mut inputs: ArrayVec<[f64; INPUTS]> = neighbors
                     .iter()
                     .flat_map(|n| {
                         once(if n.brain.is_some() { 1.0 } else { 0.0 })
@@ -84,6 +87,8 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                     })
                     .chain(Some(cell.food as f64))
                     .collect();
+                // This handles rotation of inputs in respect to cell.
+                inputs[0..NEIGHBOR_INPUTS * 4].rotate_left(NEIGHBOR_INPUTS * brain.rotation());
                 // A promise is made here not to look at the brain of any other cell elsewhere.
                 let brain = unsafe { &mut *(brain as *const Brain as *mut Brain) };
                 brain.decide(unsafe { rng() }, &inputs)

@@ -1,5 +1,5 @@
 use arrayvec::ArrayVec;
-use gridsim::moore::MooreDirection;
+use gridsim::{moore::MooreDirection, Direction};
 use iced::Color;
 use itertools::Itertools;
 use rand::{
@@ -47,13 +47,15 @@ pub fn combine(rng: &mut impl Rng, brains: impl IntoIterator<Item = Brain>) -> B
         .all(|b| b.color_array() == brains[0].color_array())
     {
         Brain {
-            color: brains[0].color,
+            color: brains[rng.gen_range(0, brains.len())].color,
+            rotation: brains[rng.gen_range(0, brains.len())].rotation,
             memory,
             code,
         }
     } else {
         Brain {
             color: random_color(rng),
+            rotation: brains[rng.gen_range(0, brains.len())].rotation,
             memory,
             code,
         }
@@ -63,6 +65,8 @@ pub fn combine(rng: &mut impl Rng, brains: impl IntoIterator<Item = Brain>) -> B
 #[derive(Clone, Debug)]
 pub struct Brain {
     color: Color,
+    /// Rotation counter-clockwise (direction of iteration in gridsim)
+    rotation: usize,
     memory: ArrayVec<[f64; NUM_STATE]>,
     code: Arc<Dna>,
 }
@@ -80,6 +84,25 @@ impl Brain {
         self.memory[0]
     }
 
+    pub fn rotation(&self) -> usize {
+        self.rotation
+    }
+
+    pub fn rotate(&self, mut decision: Decision) -> Decision {
+        let rot = |mut dir: MooreDirection| {
+            for _ in 0..self.rotation {
+                dir = dir.turn_counterclockwise();
+            }
+            dir
+        };
+        match &mut decision {
+            Decision::Divide(dir) => *dir = rot(*dir),
+            Decision::Move(dir) => *dir = rot(*dir),
+            Decision::Nothing => {}
+        }
+        decision
+    }
+
     pub fn decide(&mut self, rng: &mut impl Rng, inputs: &[f64]) -> Decision {
         let mut decision = Decision::Nothing;
         let mut entries = self.code.entries.clone();
@@ -90,10 +113,12 @@ impl Brain {
                     let writepos = pos as usize % self.memory.len();
                     self.memory[writepos] = v;
                 }
+                Action::RotateLeft => self.rotation = (self.rotation + 1) % 4,
+                Action::RotateRight => self.rotation = (self.rotation + 3) % 4,
                 action => decision = action.into(),
             }
         }
-        decision
+        self.rotate(decision)
     }
 
     pub fn mutate(&mut self, rng: &mut impl Rng) {
@@ -104,10 +129,12 @@ impl Brain {
 impl Distribution<Brain> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Brain {
         let memory = std::iter::repeat(0.0).collect();
+        let rotation = rng.gen_range(0, 4);
         let code = Arc::new(rng.gen());
         let color = random_color(rng);
         Brain {
             color,
+            rotation,
             memory,
             code,
         }
@@ -288,6 +315,8 @@ impl Dna {
                 }
                 Codon::Move(dir) => return Action::Move(dir),
                 Codon::Divide(dir) => return Action::Divide(dir),
+                Codon::RotateLeft => return Action::RotateLeft,
+                Codon::RotateRight => return Action::RotateRight,
                 Codon::Nothing => break,
             }
             at = (at + 1) % self.sequence.len();
@@ -331,12 +360,14 @@ enum Codon {
     Write(u32),
     Move(MooreDirection),
     Divide(MooreDirection),
+    RotateLeft,
+    RotateRight,
     Nothing,
 }
 
 impl Distribution<Codon> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Codon {
-        match rng.gen_range(0, 13) {
+        match rng.gen_range(0, 15) {
             0 => Codon::Add,
             1 => Codon::Sub,
             2 => Codon::Mul,
@@ -361,7 +392,9 @@ impl Distribution<Codon> for Standard {
                 3 => MooreDirection::Down,
                 _ => unreachable!(),
             }),
-            12 => Codon::Nothing,
+            12 => Codon::RotateLeft,
+            13 => Codon::RotateRight,
+            14 => Codon::Nothing,
             _ => unreachable!(),
         }
     }
@@ -371,6 +404,8 @@ pub enum Action {
     Write(u32, f64),
     Move(MooreDirection),
     Divide(MooreDirection),
+    RotateLeft,
+    RotateRight,
     Nothing,
 }
 
