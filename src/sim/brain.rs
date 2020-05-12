@@ -22,18 +22,8 @@ lazy_static::lazy_static! {
 fn random_color<R: Rng + ?Sized>(rng: &mut R) -> Color {
     use palette::*;
     // Dont allow the color to be green or red.
-    let hue_rand = rng.gen::<f32>() * 240.0;
-    let hsv = Hsv::new(
-        RgbHue::from_degrees(if hue_rand < 60.0 {
-            // Between red and green.
-            hue_rand + 30.0
-        } else {
-            // Between green and red.
-            hue_rand - 60.0 + 150.0
-        }),
-        rng.gen::<f32>() * 0.1 + 0.9,
-        1.0,
-    );
+    let hue_rand = rng.gen::<f32>() * 360.0;
+    let hsv = Hsv::new(RgbHue::from_degrees(hue_rand), 1.0, 1.0);
     let rgb = Srgb::<f32>::from_hsv(hsv);
     Color::from_rgb(rgb.red, rgb.green, rgb.blue)
 }

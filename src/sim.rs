@@ -213,7 +213,7 @@ pub struct Cell {
 
 fn cap_color(n: f32) -> f32 {
     if n > 1.0 {
-        1.0
+        0.3
     } else {
         n
     }
@@ -224,7 +224,7 @@ impl Cell {
         if self.brain.is_some() {
             self.brain.as_ref().unwrap().color()
         } else if self.wall {
-            Color::from_rgb(1.0, 0.0, 0.0)
+            Color::from_rgb(0.5, 0.0, 0.0)
         } else {
             Color::from_rgb(
                 0.0,
@@ -320,11 +320,14 @@ impl Sim {
                 cell.wall = true;
             }
         }
-        Self { grid: grid, frames_elapsed: 0 }
+        Self {
+            grid: grid,
+            frames_elapsed: 0,
+        }
     }
 
     pub fn tick(mut self, times: usize) -> Self {
-        self.frames_elapsed=times;
+        self.frames_elapsed = times;
         for _ in 0..times {
             self.grid.cycle();
         }
@@ -343,7 +346,9 @@ impl Sim {
                     .collect::<Vec<Color>>(),
             )
             .unwrap(),
-            cells: self.grid.get_cells().iter().fold( 0, |acc, cell| acc + if cell.brain.is_some() {1} else {0} ),
+            cells: self.grid.get_cells().iter().fold(0, |acc, cell| {
+                acc + if cell.brain.is_some() { 1 } else { 0 }
+            }),
             ticks: temp,
         }
     }
