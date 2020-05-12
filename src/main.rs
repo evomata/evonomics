@@ -206,55 +206,57 @@ impl<'a> Application for EvonomicsWorld {
         let speed = self.next_speed.unwrap_or(self.speed);
         match self.menu_state {
             MenuState::MainMenu => {
+                const COLLUMN_WIDTH: u32 = 350;
+
+                let new_run_column = Column::new()
+                    .spacing(10)
+                    .max_width(COLLUMN_WIDTH)
+                    .align_items( Align::Center )
+                    .push( Button::new( &mut self.run_simulation_button, Text::new("Run Simulation").horizontal_alignment(HorizontalAlignment::Center) ).min_width(COLLUMN_WIDTH)
+                            .on_press(Message::SimView) )
+                    .push( Slider::new( &mut self.dimension_slider, 32.0..=4096.0, self.dimension as f32, Message::DimensionSet ) )
+                    .push( Text::new(format!("Sim Dimension {} (cells {})", self.dimension, self.dimension*self.dimension) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) );
+                
+                let load_save_column = Button::new( &mut self.load_save_button, Text::new("Load Save").horizontal_alignment(HorizontalAlignment::Center) ).min_width(COLLUMN_WIDTH);
+
                 Column::new()
                     .height(Length::Fill)
                     .width(Length::Fill)
-                    .padding(100)
-                    .spacing(60)
+                    .padding(60)
+                    .spacing(100)
                     .align_items(Align::Center)
                     .push(Text::new("Evonomics").size(50))
                     .push( 
                         Row::new()
                         .spacing(100)
-                        .push(
-                            Column::new()
-                                .spacing(10)
-                                .max_width(BUTTON_SIZE)
-                                .align_items( Align::Center )
-                                .push( Button::new( &mut self.run_simulation_button, Text::new("Run Simulation").horizontal_alignment(HorizontalAlignment::Center) ).min_width(BUTTON_SIZE)
-                                        .on_press(Message::SimView) 
-                                )
-                                .push( Slider::new( &mut self.dimension_slider, 32.0..=4096.0, self.dimension as f32, Message::DimensionSet ) )
-                                .push( Text::new(format!("Sim Dimension {} (cells {})", self.dimension, self.dimension*self.dimension) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
-                        )
-                        .push( Button::new( &mut self.load_save_button, Text::new("Load Save").horizontal_alignment(HorizontalAlignment::Center) ).min_width(BUTTON_SIZE) )
+                        .push( new_run_column )
+                        .push( load_save_column )
                     )
                     .into()
-                // TODO: .push(settings:labels&radios&sliders) resource list with scarcity sliders, radio button for market entity, radio button for distance trading, slider for trade penalty, slider for carry capacities, slider for barter penalty
             }
             MenuState::SimMenu => {
+
+                let grid_controls = 
+                    Column::new()
+                        .spacing(10)
+                        .padding(10)
+                        .max_width(220)
+                        .push( Button::new( &mut self.save_simulation_button, Text::new("save") ).min_width(BUTTON_SIZE) )
+                        .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
+                            .on_press(Message::ToggleSim) )
+                        .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ) )
+                        .push( Slider::new( &mut self.frame_rate_slider, 1.0..=32.0, self.frames_per_second as f32, Message::FrameRateChanged ) )
+                        .push( Text::new( format!("{} Ticks/frame (fps {})", speed, self.frames_per_second) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
+                        .push( Space::new(Length::Fill, Length::Shrink) )
+                        .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
+                            .on_press(Message::ToggleGrid) );
+
                 Row::new()
                     .push( 
                         Row::new()
-                            .padding(10)
-                            .push(
-                                Box::new( 
-                                    Column::new()
-                                        .spacing(10)
-                                        .max_width(220)
-                                        .push( Button::new( &mut self.save_simulation_button, Text::new("save") ).min_width(BUTTON_SIZE) )
-                                        .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).min_width(BUTTON_SIZE)
-                                            .on_press(Message::ToggleSim) )
-                                )
-                                .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ) )
-                                .push( Slider::new( &mut self.frame_rate_slider, 1.0..=32.0, self.frames_per_second as f32, Message::FrameRateChanged ) )
-                                .push( Text::new( format!("{} Ticks/frame (fps {})", speed, self.frames_per_second) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
-                                .push( Space::new(Length::Fill, Length::Shrink) )
-                                .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).min_width(BUTTON_SIZE)
-                                    .on_press(Message::ToggleGrid) )
-                            )
+                            .push( grid_controls )
                             // TODO, .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
-                            // TODO, requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
+                            //        requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
                             .push( 
                                 match self.grid {
                                     Some(ref mut grd) => {
