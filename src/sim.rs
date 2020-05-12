@@ -19,9 +19,9 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 
 mod brain;
 
-const SPAWN_FOOD: usize = 1;
+const SPAWN_FOOD: usize = 2;
 /// Food penalty for moving. Keep this as a multiple of 2.
-const MOVE_PENALTY: usize = 0;
+const MOVE_PENALTY: usize = 2;
 
 const LOWER_WALL_THRESH: f64 = -0.04;
 const HIGHER_WALL_THRESH: f64 = 0.04;
@@ -30,9 +30,9 @@ const NOISE_FREQ: f64 = 0.02;
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
 lazy_static::lazy_static! {
-    static ref FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.004).unwrap();
+    static ref FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.008).unwrap();
     static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0001).unwrap();
-    static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+    static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.00001).unwrap();
 }
 
 enum Evonomics {}
