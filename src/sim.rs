@@ -352,7 +352,7 @@ impl Sim {
                 cell.ty = CellType::Source;
             }
             let x = ix % width;
-            let y = ix / height;
+            let y = ix / width;
             // let n = source.get([x * NOISE_FREQ, y * NOISE_FREQ]);
             // if n > LOWER_WALL_THRESH && n < HIGHER_WALL_THRESH {
             //     cell.ty = CellType::Wall;
