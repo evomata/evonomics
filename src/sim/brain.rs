@@ -180,7 +180,7 @@ fn crossover(rng: &mut impl Rng, dnas: impl IntoIterator<Item = Dna>) -> Dna {
     // Now perform crossover by cycling beteween each DNA and taking a gene in order.
     let mut dna = Dna::default();
     for i in 0..highest_num_genes {
-        let which = i % genes.len();
+        let which = rng.gen_range(0, genes.len());
         let gene = &genes[which][i][..];
         if !gene.is_empty() {
             let position = dna.sequence.len();
