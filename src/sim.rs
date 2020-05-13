@@ -30,8 +30,8 @@ lazy_static::lazy_static! {
     static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.1).unwrap();
     // static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0).unwrap();
     static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
-    static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
-    static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.00005).unwrap();
+    static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+    static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.00003).unwrap();
     static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
 }
 
