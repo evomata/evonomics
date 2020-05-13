@@ -29,15 +29,15 @@ const NOISE_FREQ: f64 = 0.02;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
-const SOURCE_FOOD_SPAWN: usize = 100;
+const SOURCE_FOOD_SPAWN: usize = 15;
 
 lazy_static::lazy_static! {
-    // static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.008).unwrap();
-    static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0).unwrap();
+    static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.003).unwrap();
+    // static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0).unwrap();
     static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
-    static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0001).unwrap();
-    static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0001).unwrap();
-    static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
+    static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
+    static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.000005).unwrap();
+    static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
 }
 
 enum Evonomics {}
@@ -284,7 +284,7 @@ pub fn run_sim(
     inbound: usize,
     outbound: usize,
     width: usize,
-    height: usize
+    height: usize,
 ) -> (Sender<ToSim>, Receiver<FromSim>, impl Future<Output = ()>) {
     let (oncoming_tx, mut oncoming) = mpsc::channel(inbound);
     let (mut outgoing, outgoing_rx) = mpsc::channel(outbound);
