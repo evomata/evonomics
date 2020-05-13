@@ -126,7 +126,7 @@ impl<'a> Application for EvonomicsWorld {
                 dimension_slider: Default::default(),
                 width: 512,
                 grid_openness_slider: Default::default(),
-                openness: 3,
+                openness: 100,
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
                 next_speed: None,
@@ -265,7 +265,7 @@ impl<'a> Application for EvonomicsWorld {
                     )
                     .push(
                         Text::new(format!(
-                            "Openness {}",
+                            "Maze Openness {:<4} (Increase to errode walls.)",
                             self.openness,
                         ))
                         .size(16)
