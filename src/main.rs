@@ -1,14 +1,15 @@
 mod grid;
-mod style;
+pub mod gridgen;
 pub mod sim;
+mod style;
 
 use futures::{
     channel::mpsc::{Receiver, Sender},
     prelude::*,
 };
 use iced::{
-    button, executor, Container, slider, time, Align, Application, Button, Column, Command, Element,
-    HorizontalAlignment, Length, Row, Radio, Settings, Slider, Space, Subscription, Text,
+    button, executor, slider, time, Align, Application, Button, Column, Command, Container,
+    Element, HorizontalAlignment, Length, Radio, Row, Settings, Slider, Space, Subscription, Text,
     VerticalAlignment,
 };
 use rand::SeedableRng;
@@ -117,7 +118,7 @@ impl<'a> Application for EvonomicsWorld {
                 speed_slider: Default::default(),
                 speed: 1,
                 frame_rate_slider: Default::default(),
-                frames_per_second: 1000/66,
+                frames_per_second: 1000 / 66,
                 ms_per_frame: 66,
                 dimension_slider: Default::default(),
                 width: 512,
@@ -126,7 +127,7 @@ impl<'a> Application for EvonomicsWorld {
                 next_speed: None,
                 aspect_ratio: AspectRatio::OneToOne,
             },
-            Command::none()
+            Command::none(),
         )
     }
 
@@ -140,9 +141,9 @@ impl<'a> Application for EvonomicsWorld {
             Message::FromSim(from_sim, stream) => {
                 match from_sim {
                     sim::FromSim::View(view) => match self.grid {
-                        Some(ref mut grd) => { grd.update( view.into() ) },
+                        Some(ref mut grd) => grd.update(view.into()),
                         None => {}
-                    }
+                    },
                 }
                 return reciever_command(stream);
             }
@@ -152,16 +153,20 @@ impl<'a> Application for EvonomicsWorld {
             Message::SimView => {
                 self.menu_state = MenuState::SimMenu;
                 self.is_running_sim = true;
-                
-                let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1, self.width, self.aspect_ratio.get_height(self.width) );
+
+                let (sim_tx, sim_rx, sim_runner) =
+                    sim::run_sim(2, 1, self.width, self.aspect_ratio.get_height(self.width));
 
                 self.sim_tx = Some(sim_tx);
-                self.grid = Some( grid::Grid::new( self.width, self.aspect_ratio.get_height(self.width) ) );
-                
-                return Command::batch(
-                    vec![ 
-                        Command::perform( sim_runner, |_| panic!() ),
-                        reciever_command(sim_rx) ] );
+                self.grid = Some(grid::Grid::new(
+                    self.width,
+                    self.aspect_ratio.get_height(self.width),
+                ));
+
+                return Command::batch(vec![
+                    Command::perform(sim_runner, |_| panic!()),
+                    reciever_command(sim_rx),
+                ]);
             }
             Message::MainView => {
                 self.menu_state = MenuState::MainMenu;
@@ -169,7 +174,7 @@ impl<'a> Application for EvonomicsWorld {
             }
             Message::FrameRateChanged(new_rate) => {
                 self.frames_per_second = new_rate as usize;
-                self.ms_per_frame = ( 1000.0 / new_rate ) as usize;
+                self.ms_per_frame = (1000.0 / new_rate) as usize;
             }
             Message::SpeedChanged(new_speed) => {
                 self.speed = new_speed as usize;
@@ -180,19 +185,17 @@ impl<'a> Application for EvonomicsWorld {
             Message::ToggleSim => {
                 self.is_running_sim = !self.is_running_sim;
             }
-            Message::ToggleGrid => {
-                match self.grid {
-                    Some(ref mut grd) => { grd.toggle_lines() },
-                    None => {}
-                }
-            }
+            Message::ToggleGrid => match self.grid {
+                Some(ref mut grd) => grd.toggle_lines(),
+                None => {}
+            },
             Message::Tick => {
                 match self.sim_tx {
-                    Some(ref mut tx) => { 
+                    Some(ref mut tx) => {
                         // If the channel is full, dont send it.
-                        tx.try_send(sim::ToSim::Tick(self.speed)).ok(); 
-                    },
-                    None => {},
+                        tx.try_send(sim::ToSim::Tick(self.speed)).ok();
+                    }
+                    None => {}
                 }
             }
             Message::Null => {}
@@ -210,43 +213,83 @@ impl<'a> Application for EvonomicsWorld {
     }
 
     fn view(&mut self) -> Element<Self::Message> {
-
         let speed = self.next_speed.unwrap_or(self.speed);
 
         match self.menu_state {
-
             MenuState::MainMenu => {
-
                 let new_run_column = Column::new()
-                .spacing(10)
-                .max_width(style::MAIN_MENU_COLLUMN_WIDTH)
-                .align_items( Align::Center )
-                .push( Button::new( &mut self.run_simulation_button, Text::new("Run Simulation").horizontal_alignment(HorizontalAlignment::Center) ).style(style::Theme{}).min_width(style::MAIN_MENU_COLLUMN_WIDTH)
-                    .on_press(Message::SimView) )
-                .push( Row::new()
-                    .push( Radio::new( AspectRatio::OneToOne, "1:1", Some(self.aspect_ratio), Message::AspectChanged ) )
-                    .push( Radio::new( AspectRatio::SixteenToTen, "16:10", Some(self.aspect_ratio), Message::AspectChanged ) ) )
-                .push( Slider::new( &mut self.dimension_slider, 32.0..=4096.0, self.width as f32, Message::DimensionSet ).style(style::Theme{}) )
-                .push( Text::new(format!("Sim Dimension {} (cells {})", self.width, self.width*self.aspect_ratio.get_height(self.width) ) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) );
-                
-                let load_save_column = Button::new( &mut self.load_save_button, Text::new("Load Save").horizontal_alignment(HorizontalAlignment::Center) ).style(style::Theme{}).min_width(style::MAIN_MENU_COLLUMN_WIDTH);
+                    .spacing(10)
+                    .max_width(style::MAIN_MENU_COLLUMN_WIDTH)
+                    .align_items(Align::Center)
+                    .push(
+                        Button::new(
+                            &mut self.run_simulation_button,
+                            Text::new("Run Simulation")
+                                .horizontal_alignment(HorizontalAlignment::Center),
+                        )
+                        .style(style::Theme {})
+                        .min_width(style::MAIN_MENU_COLLUMN_WIDTH)
+                        .on_press(Message::SimView),
+                    )
+                    .push(
+                        Row::new()
+                            .push(Radio::new(
+                                AspectRatio::OneToOne,
+                                "1:1",
+                                Some(self.aspect_ratio),
+                                Message::AspectChanged,
+                            ))
+                            .push(Radio::new(
+                                AspectRatio::SixteenToTen,
+                                "16:10",
+                                Some(self.aspect_ratio),
+                                Message::AspectChanged,
+                            )),
+                    )
+                    .push(
+                        Slider::new(
+                            &mut self.dimension_slider,
+                            32.0..=4096.0,
+                            self.width as f32,
+                            Message::DimensionSet,
+                        )
+                        .style(style::Theme {}),
+                    )
+                    .push(
+                        Text::new(format!(
+                            "Sim Dimension {} (cells {})",
+                            self.width,
+                            self.width * self.aspect_ratio.get_height(self.width)
+                        ))
+                        .size(16)
+                        .vertical_alignment(VerticalAlignment::Bottom)
+                        .horizontal_alignment(HorizontalAlignment::Center)
+                        .width(Length::Fill),
+                    );
+
+                let load_save_column = Button::new(
+                    &mut self.load_save_button,
+                    Text::new("Load Save").horizontal_alignment(HorizontalAlignment::Center),
+                )
+                .style(style::Theme {})
+                .min_width(style::MAIN_MENU_COLLUMN_WIDTH);
 
                 Container::new(
                     Column::new()
-                    .height(Length::Fill)
-                    .width(Length::Fill)
-                    .padding(60)
-                    .spacing(100)
-                    .align_items(Align::Center)
-                    .push(Text::new("Evonomics").size(50).color( style::COLOR_GOLD ))
-                    .push( 
-                        Row::new()
+                        .height(Length::Fill)
+                        .width(Length::Fill)
+                        .padding(60)
                         .spacing(100)
-                        .push( new_run_column )
-                        .push( load_save_column )
-                    )
+                        .align_items(Align::Center)
+                        .push(Text::new("Evonomics").size(50).color(style::COLOR_GOLD))
+                        .push(
+                            Row::new()
+                                .spacing(100)
+                                .push(new_run_column)
+                                .push(load_save_column),
+                        ),
                 )
-                .style(style::Theme{})
+                .style(style::Theme {})
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
@@ -254,39 +297,79 @@ impl<'a> Application for EvonomicsWorld {
                 .into()
             }
             MenuState::SimMenu => {
-
                 let grid_controls = Column::new()
-                .spacing(10)
-                .padding(10)
-                .max_width(220)
-                .push( Button::new( &mut self.save_simulation_button, Text::new("save") ).style(style::Theme{}).min_width(style::BUTTON_SIZE) )
-                .push( Button::new( &mut self.toggle_run_button, if self.is_running_sim { Text::new("Pause") } else { Text::new("Run") } ).style(style::Theme{}).min_width(style::BUTTON_SIZE)
-                    .on_press(Message::ToggleSim) )
-                .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ).style(style::Theme{}) )
-                .push( Slider::new( &mut self.frame_rate_slider, 1.0..=32.0, self.frames_per_second as f32, Message::FrameRateChanged ).style(style::Theme{}) )
-                .push( Text::new( format!("{} Ticks/frame (fps {})", speed, self.frames_per_second) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
-                .push( Space::new(Length::Fill, Length::Shrink) )
-                .push( Button::new( &mut self.toggle_grid_button, Text::new("Toggle Grid") ).style(style::Theme{}).min_width(style::BUTTON_SIZE)
-                    .on_press(Message::ToggleGrid) );
+                    .spacing(10)
+                    .padding(10)
+                    .max_width(220)
+                    .push(
+                        Button::new(&mut self.save_simulation_button, Text::new("save"))
+                            .style(style::Theme {})
+                            .min_width(style::BUTTON_SIZE),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.toggle_run_button,
+                            if self.is_running_sim {
+                                Text::new("Pause")
+                            } else {
+                                Text::new("Run")
+                            },
+                        )
+                        .style(style::Theme {})
+                        .min_width(style::BUTTON_SIZE)
+                        .on_press(Message::ToggleSim),
+                    )
+                    .push(
+                        Slider::new(
+                            &mut self.speed_slider,
+                            1.0..=100.0,
+                            speed as f32,
+                            Message::SpeedChanged,
+                        )
+                        .style(style::Theme {}),
+                    )
+                    .push(
+                        Slider::new(
+                            &mut self.frame_rate_slider,
+                            1.0..=32.0,
+                            self.frames_per_second as f32,
+                            Message::FrameRateChanged,
+                        )
+                        .style(style::Theme {}),
+                    )
+                    .push(
+                        Text::new(format!(
+                            "{} Ticks/frame (fps {})",
+                            speed, self.frames_per_second
+                        ))
+                        .size(16)
+                        .vertical_alignment(VerticalAlignment::Bottom)
+                        .horizontal_alignment(HorizontalAlignment::Center)
+                        .width(Length::Fill),
+                    )
+                    .push(Space::new(Length::Fill, Length::Shrink))
+                    .push(
+                        Button::new(&mut self.toggle_grid_button, Text::new("Toggle Grid"))
+                            .style(style::Theme {})
+                            .min_width(style::BUTTON_SIZE)
+                            .on_press(Message::ToggleGrid),
+                    );
 
                 Container::new(
-                    Row::new()
-                    .push( 
+                    Row::new().push(
                         Row::new()
-                        .push( grid_controls )
-                        // TODO, .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
-                        //        requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
-                        .push( 
-                            match self.grid {
-                                Some(ref mut grd) => {
-                                    grd.view().map(|_| Message::Null) 
-                                },
-                                None => { panic!("unexpected entry to view without initializing grid") }
-                            }
-                        ) 
-                    )
+                            .push(grid_controls)
+                            // TODO, .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
+                            //        requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
+                            .push(match self.grid {
+                                Some(ref mut grd) => grd.view().map(|_| Message::Null),
+                                None => {
+                                    panic!("unexpected entry to view without initializing grid")
+                                }
+                            }),
+                    ),
                 )
-                .style(style::Theme{})
+                .style(style::Theme {})
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
@@ -306,12 +389,8 @@ enum AspectRatio {
 impl AspectRatio {
     pub fn get_height(&self, width: usize) -> usize {
         match self {
-            AspectRatio::OneToOne => {
-                width
-            },
-            AspectRatio::SixteenToTen => {
-                width*5 / 8
-            }
+            AspectRatio::OneToOne => width,
+            AspectRatio::SixteenToTen => width * 5 / 8,
         }
     }
 }

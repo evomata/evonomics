@@ -604,6 +604,7 @@ dependencies = [
  "rand_distr",
  "rayon",
  "rustc-hash",
+ "slab",
  "tokio",
 ]
 

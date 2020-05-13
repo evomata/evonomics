@@ -335,25 +335,29 @@ pub struct Sim {
 impl Sim {
     fn new(width: usize, height: usize) -> Self {
         let mut grid = SquareGrid::<Evonomics>::new(width, height);
-        let scaled = noise::ScalePoint::new(noise::OpenSimplex::new()).set_scale(1.4);
-        let scale = noise::Constant::new(0.8);
-        let noise_a = noise::Multiply::new(&scaled, &scale);
-        let noise_b = noise::ScalePoint::new(
-            noise::Worley::new()
-                .enable_range(true)
-                .set_displacement(0.0),
-        )
-        .set_scale(2.0);
-        let source = noise::Min::new(&noise_a, &noise_b);
+        // let scaled = noise::ScalePoint::new(noise::OpenSimplex::new()).set_scale(1.4);
+        // let scale = noise::Constant::new(0.8);
+        // let noise_a = noise::Multiply::new(&scaled, &scale);
+        // let noise_b = noise::ScalePoint::new(
+        //     noise::Worley::new()
+        //         .enable_range(true)
+        //         .set_displacement(0.0),
+        // )
+        // .set_scale(2.0);
+        // let source = noise::Min::new(&noise_a, &noise_b);
         let rng = unsafe { rng() };
+        let walls = crate::gridgen::generate_walls(rng, (height, width));
         for (ix, cell) in grid.get_cells_mut().iter_mut().enumerate() {
             if rng.sample(*SOURCE_SPAWN_DISTRIBUTION) {
                 cell.ty = CellType::Source;
             }
-            let x = (ix % width) as f64;
-            let y = (ix / height) as f64;
-            let n = source.get([x * NOISE_FREQ, y * NOISE_FREQ]);
-            if n > LOWER_WALL_THRESH && n < HIGHER_WALL_THRESH {
+            let x = ix % width;
+            let y = ix / height;
+            // let n = source.get([x * NOISE_FREQ, y * NOISE_FREQ]);
+            // if n > LOWER_WALL_THRESH && n < HIGHER_WALL_THRESH {
+            //     cell.ty = CellType::Wall;
+            // }
+            if walls[(y, x)] {
                 cell.ty = CellType::Wall;
             }
         }
