@@ -257,7 +257,7 @@ impl<'a> Application for EvonomicsWorld {
                     .push(
                         Slider::new(
                             &mut self.grid_openness_slider,
-                            1.0..=8.0,
+                            0.0..=1000.0,
                             self.openness as f32,
                             Message::OpennessSet,
                         )
