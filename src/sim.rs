@@ -24,7 +24,7 @@ const MOVE_PENALTY: usize = 2;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
-const SOURCE_FOOD_SPAWN: usize = 15;
+const SOURCE_FOOD_SPAWN: usize = 100;
 
 lazy_static::lazy_static! {
     static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.1).unwrap();
