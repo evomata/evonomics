@@ -37,7 +37,7 @@ lazy_static::lazy_static! {
     static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
     static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0001).unwrap();
     static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0001).unwrap();
-    static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+    static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
 }
 
 enum Evonomics {}
