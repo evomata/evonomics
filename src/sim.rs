@@ -75,13 +75,15 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             .brain
             .as_ref()
             .map(|brain| {
-                const NEIGHBOR_INPUTS: usize = 3;
+                const NEIGHBOR_INPUTS: usize = 4;
                 const SELF_INPUTS: usize = 1;
                 const INPUTS: usize = NEIGHBOR_INPUTS * 4 + SELF_INPUTS;
+                let boolnum = |n| if n { 1.0 } else { 0.0 };
                 let mut inputs: ArrayVec<[f64; INPUTS]> = neighbors
                     .iter()
                     .flat_map(|n| {
-                        once(if n.brain.is_some() { 1.0 } else { 0.0 })
+                        once(boolnum(n.brain.is_some()))
+                            .chain(once(boolnum(n.ty == CellType::Wall)))
                             .chain(once(n.food as f64))
                             .chain(once(n.signal))
                     })
