@@ -42,15 +42,16 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new(dim: usize) -> Self {
-        let initial_pos: f32 = -((CELL_SIZE * dim) as f32) * 0.5;
+    pub fn new(width: usize, height: usize) -> Self {
+        let initial_x: f32 = -((CELL_SIZE * width) as f32) * 0.5;
+        let initial_y: f32 = -((CELL_SIZE * height) as f32) * 0.5;
         Self {
-            min_scaling: 0.105 * 512.0 / dim as f32,
+            min_scaling: 0.105 * 512.0 / width as f32,
             view: sim::View::default(),
             interaction: Interaction::None,
             life_cache: Cache::default(),
             grid_cache: Cache::default(),
-            translation: Vector::new(initial_pos, initial_pos),
+            translation: Vector::new(initial_x, initial_y),
             scaling: 1.0,
             show_lines: true,
             tick_durations: vec![].into(),

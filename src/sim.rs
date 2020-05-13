@@ -283,12 +283,13 @@ pub struct Diff {
 pub fn run_sim(
     inbound: usize,
     outbound: usize,
-    dimension: usize,
+    width: usize,
+    height: usize
 ) -> (Sender<ToSim>, Receiver<FromSim>, impl Future<Output = ()>) {
     let (oncoming_tx, mut oncoming) = mpsc::channel(inbound);
     let (mut outgoing, outgoing_rx) = mpsc::channel(outbound);
 
-    let mut sim = Sim::new(dimension);
+    let mut sim = Sim::new(width, height);
     let task = async move {
         while let Some(oncoming) = oncoming.next().await {
             match oncoming {
@@ -332,8 +333,8 @@ pub struct Sim {
 }
 
 impl Sim {
-    fn new(dimension: usize) -> Self {
-        let mut grid = SquareGrid::<Evonomics>::new(dimension, dimension);
+    fn new(width: usize, height: usize) -> Self {
+        let mut grid = SquareGrid::<Evonomics>::new(width, height);
         let scaled = noise::ScalePoint::new(noise::OpenSimplex::new()).set_scale(1.4);
         let scale = noise::Constant::new(0.8);
         let noise_a = noise::Multiply::new(&scaled, &scale);
@@ -349,8 +350,8 @@ impl Sim {
             if rng.sample(*SOURCE_SPAWN_DISTRIBUTION) {
                 cell.ty = CellType::Source;
             }
-            let x = (ix % dimension) as f64;
-            let y = (ix / dimension) as f64;
+            let x = (ix % width) as f64;
+            let y = (ix / height) as f64;
             let n = source.get([x * NOISE_FREQ, y * NOISE_FREQ]);
             if n > LOWER_WALL_THRESH && n < HIGHER_WALL_THRESH {
                 cell.ty = CellType::Wall;

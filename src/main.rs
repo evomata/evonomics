@@ -8,7 +8,7 @@ use futures::{
 };
 use iced::{
     button, executor, Container, slider, time, Align, Application, Button, Column, Command, Element,
-    HorizontalAlignment, Length, Row, Settings, Slider, Space, Subscription, Text,
+    HorizontalAlignment, Length, Row, Radio, Settings, Slider, Space, Subscription, Text,
     VerticalAlignment,
 };
 use rand::SeedableRng;
@@ -43,10 +43,11 @@ struct EvonomicsWorld {
     speed_slider: slider::State,
     speed: usize,
     dimension_slider: slider::State,
-    dimension: usize,
+    width: usize,
     menu_state: MenuState,
     is_running_sim: bool,
     next_speed: Option<usize>,
+    aspect_ratio: AspectRatio,
 }
 
 enum MenuState {
@@ -68,6 +69,7 @@ enum Message {
     SpeedChanged(f32),
     FrameRateChanged(f32),
     DimensionSet(f32),
+    AspectChanged(AspectRatio),
     ToggleSim,
     ToggleGrid,
     Tick,
@@ -82,6 +84,7 @@ impl Clone for Message {
             Self::ToggleSim => Self::ToggleSim,
             Self::ToggleGrid => Self::ToggleGrid,
             Self::Tick => Self::Tick,
+            Self::AspectChanged(aspect) => Message::AspectChanged(aspect.clone()),
             _ => panic!("do not try to clone messages with data in them"),
         }
     }
@@ -117,10 +120,11 @@ impl<'a> Application for EvonomicsWorld {
                 frames_per_second: 1000/66,
                 ms_per_frame: 66,
                 dimension_slider: Default::default(),
-                dimension: 512,
+                width: 512,
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
                 next_speed: None,
+                aspect_ratio: AspectRatio::OneToOne,
             },
             Command::none()
         )
@@ -142,14 +146,17 @@ impl<'a> Application for EvonomicsWorld {
                 }
                 return reciever_command(stream);
             }
+            Message::AspectChanged(new_aspect) => {
+                self.aspect_ratio = new_aspect;
+            }
             Message::SimView => {
                 self.menu_state = MenuState::SimMenu;
                 self.is_running_sim = true;
                 
-                let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1, self.dimension);
+                let (sim_tx, sim_rx, sim_runner) = sim::run_sim(2, 1, self.width, self.aspect_ratio.get_height(self.width) );
 
                 self.sim_tx = Some(sim_tx);
-                self.grid = Some( grid::Grid::new( self.dimension ) );
+                self.grid = Some( grid::Grid::new( self.width, self.aspect_ratio.get_height(self.width) ) );
                 
                 return Command::batch(
                     vec![ 
@@ -168,7 +175,7 @@ impl<'a> Application for EvonomicsWorld {
                 self.speed = new_speed as usize;
             }
             Message::DimensionSet(new_dim) => {
-                self.dimension = new_dim as usize;
+                self.width = new_dim as usize;
             }
             Message::ToggleSim => {
                 self.is_running_sim = !self.is_running_sim;
@@ -215,9 +222,12 @@ impl<'a> Application for EvonomicsWorld {
                 .max_width(style::MAIN_MENU_COLLUMN_WIDTH)
                 .align_items( Align::Center )
                 .push( Button::new( &mut self.run_simulation_button, Text::new("Run Simulation").horizontal_alignment(HorizontalAlignment::Center) ).style(style::Theme{}).min_width(style::MAIN_MENU_COLLUMN_WIDTH)
-                        .on_press(Message::SimView) )
-                .push( Slider::new( &mut self.dimension_slider, 32.0..=4096.0, self.dimension as f32, Message::DimensionSet ).style(style::Theme{}) )
-                .push( Text::new(format!("Sim Dimension {} (cells {})", self.dimension, self.dimension*self.dimension) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) );
+                    .on_press(Message::SimView) )
+                .push( Row::new()
+                    .push( Radio::new( AspectRatio::OneToOne, "1:1", Some(self.aspect_ratio), Message::AspectChanged ) )
+                    .push( Radio::new( AspectRatio::SixteenToTen, "16:10", Some(self.aspect_ratio), Message::AspectChanged ) ) )
+                .push( Slider::new( &mut self.dimension_slider, 32.0..=4096.0, self.width as f32, Message::DimensionSet ).style(style::Theme{}) )
+                .push( Text::new(format!("Sim Dimension {} (cells {})", self.width, self.width*self.aspect_ratio.get_height(self.width) ) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) );
                 
                 let load_save_column = Button::new( &mut self.load_save_button, Text::new("Load Save").horizontal_alignment(HorizontalAlignment::Center) ).style(style::Theme{}).min_width(style::MAIN_MENU_COLLUMN_WIDTH);
 
@@ -282,6 +292,25 @@ impl<'a> Application for EvonomicsWorld {
                 .center_x()
                 .center_y()
                 .into()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AspectRatio {
+    OneToOne,
+    SixteenToTen,
+}
+
+impl AspectRatio {
+    pub fn get_height(&self, width: usize) -> usize {
+        match self {
+            AspectRatio::OneToOne => {
+                width
+            },
+            AspectRatio::SixteenToTen => {
+                width*5 / 8
             }
         }
     }
