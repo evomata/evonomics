@@ -45,6 +45,8 @@ struct EvonomicsWorld {
     speed: usize,
     dimension_slider: slider::State,
     width: usize,
+    grid_openness_slider: slider::State,
+    openness: usize,
     menu_state: MenuState,
     is_running_sim: bool,
     next_speed: Option<usize>,
@@ -71,6 +73,7 @@ enum Message {
     FrameRateChanged(f32),
     DimensionSet(f32),
     AspectChanged(AspectRatio),
+    OpennessSet(f32),
     ToggleSim,
     ToggleGrid,
     Tick,
@@ -122,6 +125,8 @@ impl<'a> Application for EvonomicsWorld {
                 ms_per_frame: 66,
                 dimension_slider: Default::default(),
                 width: 512,
+                grid_openness_slider: Default::default(),
+                openness: 3,
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
                 next_speed: None,
@@ -150,12 +155,15 @@ impl<'a> Application for EvonomicsWorld {
             Message::AspectChanged(new_aspect) => {
                 self.aspect_ratio = new_aspect;
             }
+            Message::OpennessSet(new_openness) => {
+                self.openness = new_openness as usize;
+            }
             Message::SimView => {
                 self.menu_state = MenuState::SimMenu;
                 self.is_running_sim = true;
 
                 let (sim_tx, sim_rx, sim_runner) =
-                    sim::run_sim(2, 1, self.width, self.aspect_ratio.get_height(self.width));
+                    sim::run_sim(2, 1, self.width, self.aspect_ratio.get_height(self.width), self.openness);
 
                 self.sim_tx = Some(sim_tx);
                 self.grid = Some(grid::Grid::new(
@@ -245,6 +253,25 @@ impl<'a> Application for EvonomicsWorld {
                                 Some(self.aspect_ratio),
                                 Message::AspectChanged,
                             )),
+                    )
+                    .push(
+                        Slider::new(
+                            &mut self.grid_openness_slider,
+                            1.0..=8.0,
+                            self.openness as f32,
+                            Message::OpennessSet,
+                        )
+                        .style(style::Theme {})
+                    )
+                    .push(
+                        Text::new(format!(
+                            "Openness {}",
+                            self.openness,
+                        ))
+                        .size(16)
+                        .vertical_alignment(VerticalAlignment::Bottom)
+                        .horizontal_alignment(HorizontalAlignment::Center)
+                        .width(Length::Fill),
                     )
                     .push(
                         Slider::new(

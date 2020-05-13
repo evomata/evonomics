@@ -282,11 +282,12 @@ pub fn run_sim(
     outbound: usize,
     width: usize,
     height: usize,
+    openness: usize,
 ) -> (Sender<ToSim>, Receiver<FromSim>, impl Future<Output = ()>) {
     let (oncoming_tx, mut oncoming) = mpsc::channel(inbound);
     let (mut outgoing, outgoing_rx) = mpsc::channel(outbound);
 
-    let mut sim = Sim::new(width, height);
+    let mut sim = Sim::new(width, height, openness);
     let task = async move {
         while let Some(oncoming) = oncoming.next().await {
             match oncoming {
@@ -330,7 +331,7 @@ pub struct Sim {
 }
 
 impl Sim {
-    fn new(width: usize, height: usize) -> Self {
+    fn new(width: usize, height: usize, openness: usize) -> Self {
         let mut grid = SquareGrid::<Evonomics>::new(width, height);
         let rng = unsafe { rng() };
         let walls = crate::gridgen::generate_walls(rng, (height, width));
@@ -340,7 +341,8 @@ impl Sim {
             }
             let x = ix % width;
             let y = ix / width;
-            if walls[(y, x)] {
+            
+            if walls[(y, x)] && rng.sample( Bernoulli::new( 1.0 / openness as f64 ).unwrap() ) {
                 cell.ty = CellType::Wall;
             }
         }
