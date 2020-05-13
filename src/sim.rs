@@ -342,7 +342,7 @@ impl Sim {
             let x = ix % width;
             let y = ix / width;
             
-            if walls[(y, x)] && rng.sample( Bernoulli::new( 1.0 / openness as f64 ).unwrap() ) {
+            if walls[(y, x)] && rng.sample( Bernoulli::new( 10.0 / (openness+9) as f64 ).unwrap() ) {
                 cell.ty = CellType::Wall;
             }
         }
