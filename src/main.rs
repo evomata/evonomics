@@ -125,7 +125,7 @@ impl<'a> Application for EvonomicsWorld {
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
                 next_speed: None,
-                aspect_ratio: AspectRatio::OneToOne,
+                aspect_ratio: AspectRatio::SixteenToTen,
             },
             Command::none(),
         )
