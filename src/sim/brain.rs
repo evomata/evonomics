@@ -2,6 +2,7 @@ use arrayvec::ArrayVec;
 use gridsim::{moore::MooreDirection, Direction};
 use iced::Color;
 use itertools::Itertools;
+use nalgebra::{Complex, Unit, UnitComplex};
 use rand::{
     distributions::{Bernoulli, Distribution, Standard},
     seq::SliceRandom,
@@ -19,42 +20,39 @@ lazy_static::lazy_static! {
     static ref HALF_CHANCE: Bernoulli = Bernoulli::new(0.5).unwrap();
 }
 
-fn random_color<R: Rng + ?Sized>(rng: &mut R) -> Color {
-    use palette::*;
-    // Dont allow the color to be green or red.
-    let hue_rand = rng.gen::<f32>() * 360.0;
-    let hsv = Hsv::new(RgbHue::from_degrees(hue_rand), 1.0, 1.0);
-    let rgb = Srgb::<f32>::from_hsv(hsv);
-    Color::from_rgb(rgb.red, rgb.green, rgb.blue)
+/// The hue in radians.
+fn random_color<R: Rng + ?Sized>(rng: &mut R) -> f64 {
+    rng.gen_range(0.0, 2.0 * std::f64::consts::PI)
+}
+
+fn merge_colors(rng: &mut impl Rng, colors: impl Iterator<Item = f64>) -> f64 {
+    let v = colors
+        .map(|v| UnitComplex::new(v).into_inner())
+        .sum::<Complex<f64>>();
+    let angle = Unit::new_normalize(v).angle();
+    if angle.is_finite() {
+        angle
+    } else {
+        random_color(rng)
+    }
 }
 
 pub fn combine(rng: &mut impl Rng, brains: impl IntoIterator<Item = Brain>) -> Brain {
     let brains = brains.into_iter().collect_vec();
     let code = Arc::new(crossover(rng, brains.iter().map(|b| (*b.code).clone())));
     let memory = std::iter::repeat(0.0).collect();
-    if brains
-        .iter()
-        .all(|b| b.color_array() == brains[0].color_array())
-    {
-        Brain {
-            color: brains[rng.gen_range(0, brains.len())].color,
-            rotation: rng.gen_range(0, 4),
-            memory,
-            code,
-        }
-    } else {
-        Brain {
-            color: random_color(rng),
-            rotation: rng.gen_range(0, 4),
-            memory,
-            code,
-        }
+    Brain {
+        color: merge_colors(rng, brains.iter().map(|b| b.color)),
+        rotation: rng.gen_range(0, 4),
+        memory,
+        code,
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Brain {
-    color: Color,
+    /// The hue in radians.
+    color: f64,
     /// Rotation counter-clockwise (direction of iteration in gridsim)
     rotation: usize,
     memory: ArrayVec<[f64; NUM_STATE]>,
@@ -62,12 +60,11 @@ pub struct Brain {
 }
 
 impl Brain {
-    fn color_array(&self) -> [f32; 3] {
-        [self.color.r, self.color.g, self.color.b]
-    }
-
     pub fn color(&self) -> Color {
-        self.color
+        use palette::*;
+        let hsv = Hsv::new(RgbHue::from_radians(self.color), 1.0, 1.0);
+        let rgb = Srgb::<f64>::from_hsv(hsv);
+        Color::from_rgb(rgb.red as f32, rgb.green as f32, rgb.blue as f32)
     }
 
     pub fn signal(&self) -> f64 {

@@ -22,6 +22,8 @@ float-ord = "0.2.0"
 palette = "0.5.0"
 lazy_static = "1.4.0"
 rand_chacha = "0.2.2"
+nalgebra = "0.21.0"
+num-traits = "0.2.11"
 
 [profile.release]
 debug = true
