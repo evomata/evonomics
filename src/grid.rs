@@ -27,6 +27,7 @@ impl From<sim::View> for Message {
 
 pub struct Grid {
     width: usize,
+    height: usize,
     view: sim::View,
     interaction: Interaction,
     life_cache: Cache,
@@ -45,6 +46,7 @@ impl Grid {
         let initial_y: f32 = -((CELL_SIZE * height) as f32) * 0.5;
         Self {
             width: width,
+            height: height,
             view: sim::View::default(),
             interaction: Interaction::None,
             life_cache: Cache::default(),
@@ -123,6 +125,42 @@ impl canvas::Program<()> for Grid {
 
         let cursor_position = cursor.position_in(&bounds)?;
         let min_scaling = bounds.width / ( self.width * CELL_SIZE ) as f32;
+        if self.scaling < min_scaling { self.scaling = min_scaling; }
+
+        let x_offset = -self.translation.x;
+        let x_range_half = bounds.width/self.scaling/2.0;
+        let right_border_correction = x_offset + x_range_half - (self.width*CELL_SIZE) as f32;
+        let y_offset = -self.translation.y;
+        let y_range = bounds.height/self.scaling;
+        let y_range_half = y_range/2.0;
+        let needed_y = (self.height*CELL_SIZE) as f32;
+
+        // correct left/right transition
+        if right_border_correction > 0.0 {
+            self.translation.x += right_border_correction;
+        }
+        else {
+            let left_border_correction = x_offset - x_range_half;
+            if left_border_correction < 0.0 {
+                self.translation.x += left_border_correction;
+            }
+        }
+        // correct up/down transition.. minscaling dep on width; this may cause issues so there is an extra condition
+        if needed_y < y_range {
+            self.translation.y = - needed_y / 2.0;
+        }
+        else {
+            let bottom_border_correction = y_offset + y_range_half - (self.height*CELL_SIZE) as f32;
+            if bottom_border_correction > 0.0 {
+                self.translation.y += bottom_border_correction;
+            }
+            else {
+                let top_border_correction = y_offset - y_range_half;
+                if top_border_correction < 0.0 {
+                    self.translation.y += top_border_correction;
+                }
+            }
+        }
 
         match event {
             Event::Mouse(mouse_event) => match mouse_event {
