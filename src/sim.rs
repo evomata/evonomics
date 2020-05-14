@@ -195,7 +195,14 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             }
 
             // Handle spawning.
-            if cell.brain.is_none() && unsafe { rng.sample( match CELL_SPAWN_DISTRIBUTION { Some(dist) => {dist}, None => {Bernoulli::new(0.00003).unwrap()} } ) } {
+            if cell.brain.is_none()
+                && unsafe {
+                    rng.sample(match CELL_SPAWN_DISTRIBUTION {
+                        Some(dist) => dist,
+                        None => Bernoulli::new(0.00003).unwrap(),
+                    })
+                }
+            {
                 cell.brain = Some(rng.gen());
                 cell.food += SPAWN_FOOD;
             }
@@ -303,10 +310,10 @@ pub fn run_sim(
                     sim = block_in_place(move || sim.tick(times));
                     let view = block_in_place(|| sim.view());
                     outgoing.send(FromSim::View(view)).await.unwrap();
-                },
-                ToSim::SetSpawnChance(new_spawn_chance) => {
-                    unsafe { CELL_SPAWN_DISTRIBUTION = Some(Bernoulli::new( new_spawn_chance ).unwrap()); }
                 }
+                ToSim::SetSpawnChance(new_spawn_chance) => unsafe {
+                    CELL_SPAWN_DISTRIBUTION = Some(Bernoulli::new(new_spawn_chance).unwrap());
+                },
             }
         }
     };
@@ -364,33 +371,9 @@ impl Sim {
             }
             let op = (oy, ox);
 
-            let x_boundary = ox * cooridor_size == x;
-            let y_boundary = oy * cooridor_size == y;
-
             let dir = |dy, dx| walls[gridgen::dir(op, os, (dy, dx))];
-            // let hside =
-            //     |dy, dx| (dir(dy, dx) && dir(dy + 1, dx)) || (dir(dy, dx) && dir(dy - 1, dx));
-            // let vside =
-            //     |dy, dx| (dir(dy, dx) && dir(dy, dx + 1)) || (dir(dy, dx) && dir(dy, dx - 1));
-            // let hend = |dy, dx| {
-            //     !dir(dy, dx) && dir(dy, dx - 1) && !dir(dy - 1, dx - 1) && !dir(dy + 1, dx - 1)
-            // };
-            // let vend = |dy, dx| {
-            //     !dir(dy, dx) && dir(dy - 1, dx) && !dir(dy - 1, dx - 1) && !dir(dy - 1, dx + 1)
-            // };
-            // let hwall =
-            //     |dy, dx| ((hside(dy, dx) || hside(dy, dx - 1)) && (dir(dy, dx) ^ dir(dy, dx - 1)));
-            // let vwall = |dy, dx| {
-            //     ((vside(dy, dx) || vside(dy - 1, dx)) && (dir(dy, dx) ^ dir(dy - 1, dx)))
-            //         || vend(dy, dx)
-            // };
-            let hwall = |dy, dx| dir(dy, dx) ^ dir(dy, dx - 1);
-            let vwall = |dy, dx| dir(dy, dx) ^ dir(dy - 1, dx);
 
             if dir(0, 0) {
-                cell.ty = CellType::Source;
-            }
-            if (x_boundary && hwall(0, 0)) || (y_boundary && vwall(0, 0)) {
                 cell.ty = CellType::Wall;
             }
         }
