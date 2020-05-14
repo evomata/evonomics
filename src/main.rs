@@ -414,7 +414,7 @@ impl<'a> Application for EvonomicsWorld {
                     .push( fps_controls )
                     .push( spawn_controls )
                     .push(
-                        Button::new(&mut self.toggle_grid_button, Text::new("Toggle Grid"))
+                        Button::new(&mut self.toggle_grid_button, Text::new( match self.grid { Some(ref grd) => if grd.is_showing_lines() {"Hide Grid"} else {"Show Grid"}, None => panic!("grid doesn't exist when attempting to draw grid controls!") } ) )
                             .style(style::Theme::Default)
                             .min_width(style::BUTTON_SIZE)
                             .on_press(Message::ToggleGrid),

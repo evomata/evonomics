@@ -90,6 +90,8 @@ impl Grid {
         self.show_lines = !self.show_lines;
     }
 
+    pub fn is_showing_lines(&self) -> bool { self.show_lines }
+
     // used for grid lines, determining when cells are visible, and accurately placing the mouse
     fn visible_region(&self, size: Size) -> Region {
         let width = size.width / self.scaling;
