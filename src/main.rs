@@ -108,18 +108,22 @@ impl Clone for Message {
     }
 }
 
-fn reciever_command( rx: Receiver<sim::FromSim> ) -> Command<Message> {
-    Command::perform( rx.into_future(), |(item, stream)| {
-        Message::FromSim( item.expect("sim_rx ended unexpectedly"), stream )
-    } )
+fn reciever_command(rx: Receiver<sim::FromSim>) -> Command<Message> {
+    Command::perform(rx.into_future(), |(item, stream)| {
+        Message::FromSim(item.expect("sim_rx ended unexpectedly"), stream)
+    })
 }
 
-fn spawn_rate(is_inverse_rate_type: bool, cell_count: usize, height: usize, spawn_rate: f32) -> f64 {
+fn spawn_rate(
+    is_inverse_rate_type: bool,
+    cell_count: usize,
+    height: usize,
+    spawn_rate: f32,
+) -> f64 {
     if is_inverse_rate_type {
         // at rate=0, a new cell in every row
-        1.0 / (cell_count as f64*spawn_rate as f64*10.0 + height as f64)
-    }
-    else { 
+        1.0 / (cell_count as f64 * spawn_rate as f64 * 10.0 + height as f64)
+    } else {
         // at rate=1, a new cell in every row
         spawn_rate as f64 / height as f64
     }
@@ -149,7 +153,12 @@ impl<'a> Application for EvonomicsWorld {
                 is_inverse_rate_type: INITIAL_IS_INVERSE_RATE,
                 spawn_slider: Default::default(),
                 spawn_rate: INITIAL_SPAWN_RATE,
-                spawn_chance: spawn_rate(INITIAL_IS_INVERSE_RATE, 0, INITIAL_ASPECT.get_height(INITIAL_WIDTH), INITIAL_SPAWN_RATE),
+                spawn_chance: spawn_rate(
+                    INITIAL_IS_INVERSE_RATE,
+                    0,
+                    INITIAL_ASPECT.get_height(INITIAL_WIDTH),
+                    INITIAL_SPAWN_RATE,
+                ),
                 toggle_run_button: Default::default(),
                 toggle_grid_button: Default::default(),
                 speed_slider: Default::default(),
@@ -184,7 +193,7 @@ impl<'a> Application for EvonomicsWorld {
                         Some(ref mut grd) => {
                             self.cell_count = view.cells;
                             grd.update(view.into())
-                        },
+                        }
                         None => {}
                     },
                 }
@@ -198,22 +207,34 @@ impl<'a> Application for EvonomicsWorld {
             }
             Message::SpawnRateChanged(new_rate) => {
                 self.spawn_rate = new_rate;
-                self.spawn_chance = spawn_rate(self.is_inverse_rate_type, self.cell_count, self.aspect_ratio.get_height(self.width), self.spawn_rate);
+                self.spawn_chance = spawn_rate(
+                    self.is_inverse_rate_type,
+                    self.cell_count,
+                    self.aspect_ratio.get_height(self.width),
+                    self.spawn_rate,
+                );
                 match self.sim_tx {
                     Some(ref mut tx) => {
                         // If the channel is full, dont send it.
-                        tx.try_send(sim::ToSim::SetSpawnChance(self.spawn_chance)).ok();
+                        tx.try_send(sim::ToSim::SetSpawnChance(self.spawn_chance))
+                            .ok();
                     }
                     None => {}
                 }
             }
             Message::ToggleRateType => {
                 self.is_inverse_rate_type = !self.is_inverse_rate_type;
-                self.spawn_chance = spawn_rate(self.is_inverse_rate_type, self.cell_count, self.aspect_ratio.get_height(self.width), self.spawn_rate);
+                self.spawn_chance = spawn_rate(
+                    self.is_inverse_rate_type,
+                    self.cell_count,
+                    self.aspect_ratio.get_height(self.width),
+                    self.spawn_rate,
+                );
                 match self.sim_tx {
                     Some(ref mut tx) => {
                         // If the channel is full, dont send it.
-                        tx.try_send(sim::ToSim::SetSpawnChance(self.spawn_chance)).ok();
+                        tx.try_send(sim::ToSim::SetSpawnChance(self.spawn_chance))
+                            .ok();
                     }
                     None => {}
                 }
@@ -223,8 +244,8 @@ impl<'a> Application for EvonomicsWorld {
                 // self.is_running_sim = true;
 
                 let (sim_tx, sim_rx, sim_runner) = sim::run_sim(
-                    2,
-                    1,
+                    3,
+                    3,
                     self.width,
                     self.aspect_ratio.get_height(self.width),
                     self.openness,
@@ -368,31 +389,123 @@ impl<'a> Application for EvonomicsWorld {
                 .min_width(style::MAIN_MENU_COLLUMN_WIDTH);
 
                 Container::new(
-                    Column::new().height(Length::Fill).width(Length::Fill).padding(60).spacing(100).align_items(Align::Center)
-                        .push( Text::new("Evonomics").size(50).color(style::COLOR_GOLD) )
-                        .push( Row::new().spacing(100).push(new_run_column).push(load_save_column) ),
+                    Column::new()
+                        .height(Length::Fill)
+                        .width(Length::Fill)
+                        .padding(60)
+                        .spacing(100)
+                        .align_items(Align::Center)
+                        .push(Text::new("Evonomics").size(50).color(style::COLOR_GOLD))
+                        .push(
+                            Row::new()
+                                .spacing(100)
+                                .push(new_run_column)
+                                .push(load_save_column),
+                        ),
                 )
-                .style(style::Theme::Default).width(Length::Fill).height(Length::Fill).center_x().center_y().into()
+                .style(style::Theme::Default)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x()
+                .center_y()
+                .into()
             }
             MenuState::SimMenu => {
-                let fps_controls = Container::new( 
-                    Column::new().padding(style::PADDING)
-                    .push( Slider::new( &mut self.speed_slider, 1.0..=100.0, speed as f32, Message::SpeedChanged ).style(style::Theme::Default) )
-                    .push( Text::new( format!( "ticks/frame: {:<3}", speed ) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
-                    .push( Slider::new( &mut self.frame_rate_slider, 1.0..=32.0, self.frames_per_second as f32, Message::FrameRateChanged ).style(style::Theme::Default) )
-                    .push( Text::new( format!( "frames/second: {:<3}", self.frames_per_second ) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
-                    .push( Text::new( format!( "ticks/second: {:.1}", match &self.grid { Some(grd) => grd.get_ticks_per_second(), None => panic!("grid not set in gui thread!"), } ) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
-                ).style(style::Theme::Nested);
+                let fps_controls = Container::new(
+                    Column::new()
+                        .padding(style::PADDING)
+                        .push(
+                            Slider::new(
+                                &mut self.speed_slider,
+                                1.0..=100.0,
+                                speed as f32,
+                                Message::SpeedChanged,
+                            )
+                            .style(style::Theme::Default),
+                        )
+                        .push(
+                            Text::new(format!("ticks/frame: {:<3}", speed))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(
+                            Slider::new(
+                                &mut self.frame_rate_slider,
+                                1.0..=32.0,
+                                self.frames_per_second as f32,
+                                Message::FrameRateChanged,
+                            )
+                            .style(style::Theme::Default),
+                        )
+                        .push(
+                            Text::new(format!("frames/second: {:<3}", self.frames_per_second))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(
+                            Text::new(format!(
+                                "ticks/second: {:.1}",
+                                match &self.grid {
+                                    Some(grd) => grd.get_ticks_per_second(),
+                                    None => panic!("grid not set in gui thread!"),
+                                }
+                            ))
+                            .size(16)
+                            .vertical_alignment(VerticalAlignment::Bottom)
+                            .horizontal_alignment(HorizontalAlignment::Center)
+                            .width(Length::Fill),
+                        ),
+                )
+                .style(style::Theme::Nested);
 
-                let spawn_controls = Container::new( 
-                    Column::new().padding(style::PADDING)
-                    .push( Button::new( &mut self.toggle_spawn_rate_type_button, Text::new( if self.is_inverse_rate_type {"Currently Inverse"} else {"Currently Proportional"} ) ).style(style::Theme::Nested).width(Length::Fill) 
-                            .on_press(Message::ToggleRateType) )
-                    .push( Slider::new( &mut self.spawn_slider, 0.001..=2.0, self.spawn_rate, Message::SpawnRateChanged ).style(style::Theme::Default) )
-                    .push( Text::new( format!( "Estimated RNG Cells/Tick\n{:.3}", self.spawn_chance*self.width as f64*self.aspect_ratio.get_height(self.width) as f64 ) ).size(16).vertical_alignment(VerticalAlignment::Bottom).horizontal_alignment(HorizontalAlignment::Center).width(Length::Fill) )
-                ).style(style::Theme::Nested);
+                let spawn_controls = Container::new(
+                    Column::new()
+                        .padding(style::PADDING)
+                        .push(
+                            Button::new(
+                                &mut self.toggle_spawn_rate_type_button,
+                                Text::new(if self.is_inverse_rate_type {
+                                    "Currently Inverse"
+                                } else {
+                                    "Currently Proportional"
+                                }),
+                            )
+                            .style(style::Theme::Nested)
+                            .width(Length::Fill)
+                            .on_press(Message::ToggleRateType),
+                        )
+                        .push(
+                            Slider::new(
+                                &mut self.spawn_slider,
+                                0.001..=2.0,
+                                self.spawn_rate,
+                                Message::SpawnRateChanged,
+                            )
+                            .style(style::Theme::Default),
+                        )
+                        .push(
+                            Text::new(format!(
+                                "Estimated RNG Cells/Tick\n{:.3}",
+                                self.spawn_chance
+                                    * self.width as f64
+                                    * self.aspect_ratio.get_height(self.width) as f64
+                            ))
+                            .size(16)
+                            .vertical_alignment(VerticalAlignment::Bottom)
+                            .horizontal_alignment(HorizontalAlignment::Center)
+                            .width(Length::Fill),
+                        ),
+                )
+                .style(style::Theme::Nested);
 
-                let grid_controls = Column::new().spacing(style::SPACING).padding(style::PADDING).max_width(style::BUTTON_SIZE+style::PADDING as u32)
+                let grid_controls = Column::new()
+                    .spacing(style::SPACING)
+                    .padding(style::PADDING)
+                    .max_width(style::BUTTON_SIZE + style::PADDING as u32)
                     .push(
                         Button::new(&mut self.save_simulation_button, Text::new("save"))
                             .style(style::Theme::Default)
@@ -411,15 +524,29 @@ impl<'a> Application for EvonomicsWorld {
                         .min_width(style::BUTTON_SIZE)
                         .on_press(Message::ToggleSim),
                     )
-                    .push( fps_controls )
-                    .push( spawn_controls )
+                    .push(fps_controls)
+                    .push(spawn_controls)
                     .push(
-                        Button::new(&mut self.toggle_grid_button, Text::new( match self.grid { Some(ref grd) => if grd.is_showing_lines() {"Hide Grid"} else {"Show Grid"}, None => panic!("grid doesn't exist when attempting to draw grid controls!") } ) )
-                            .style(style::Theme::Default)
-                            .min_width(style::BUTTON_SIZE)
-                            .on_press(Message::ToggleGrid),
+                        Button::new(
+                            &mut self.toggle_grid_button,
+                            Text::new(match self.grid {
+                                Some(ref grd) => {
+                                    if grd.is_showing_lines() {
+                                        "Hide Grid"
+                                    } else {
+                                        "Show Grid"
+                                    }
+                                }
+                                None => panic!(
+                                    "grid doesn't exist when attempting to draw grid controls!"
+                                ),
+                            }),
+                        )
+                        .style(style::Theme::Default)
+                        .min_width(style::BUTTON_SIZE)
+                        .on_press(Message::ToggleGrid),
                     );
-                
+
                 Container::new(
                     Row::new().push(
                         Row::new()
@@ -434,7 +561,12 @@ impl<'a> Application for EvonomicsWorld {
                             }),
                     ),
                 )
-                .style(style::Theme::Default).width(Length::Fill).height(Length::Fill).center_x().center_y().into()
+                .style(style::Theme::Default)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x()
+                .center_y()
+                .into()
             }
         }
     }
