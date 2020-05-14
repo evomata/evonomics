@@ -5,9 +5,8 @@ use std::ops::RangeInclusive;
 use std::time::{Duration, Instant};
 
 use iced::{
-    canvas::{self, Cache, Canvas, Cursor, Event, Frame, Geometry, Path, Text},
-    mouse, Color, Element, HorizontalAlignment, Length, Point, Rectangle, Size, Vector,
-    VerticalAlignment,
+    canvas::{self, Cache, Canvas, Cursor, Event, Frame, Geometry, Path},
+    mouse, Color, Element, Length, Point, Rectangle, Size, Vector,
 };
 
 const CELL_SIZE: usize = 20;
@@ -38,7 +37,6 @@ pub struct Grid {
     tick_durations: VecDeque<(Duration, usize)>,
     /// When a tick comes in, this is used to measure the elapsed time of the tick.
     tick_start: Instant,
-    last_queued_ticks: usize,
 }
 
 impl Grid {
@@ -56,8 +54,15 @@ impl Grid {
             show_lines: false,
             tick_durations: vec![].into(),
             tick_start: Instant::now(),
-            last_queued_ticks: 0,
         }
+    }
+
+    pub fn get_ticks_per_second (&self) -> f64 {
+        let val = self
+            .tick_durations
+            .iter()
+            .fold( (0f64, 0), |acc, (duration, ticks)| (duration.as_secs_f64() + acc.0, ticks + acc.1) );
+        val.1 as f64 / val.0
     }
 
     pub fn update(&mut self, message: Message) {
@@ -236,42 +241,6 @@ impl canvas::Program<()> for Grid {
                     );
                 });
             }
-
-            let text = Text {
-                color: Color::from_rgb8(0x10, 0x88, 0x88),
-                size: 20.0,
-                position: Point::new(frame.width(), frame.height()),
-                horizontal_alignment: HorizontalAlignment::Right,
-                vertical_alignment: VerticalAlignment::Bottom,
-                ..Text::default()
-            };
-
-            if let Some(cell) = hovered_cell {
-                frame.fill_text(Text {
-                    content: format!("({}, {})", cell.0, cell.1),
-                    position: text.position - Vector::new(0.0, 16.0),
-                    ..text
-                });
-            }
-
-            let seconds_per_tick = {
-                let val = self
-                    .tick_durations
-                    .iter()
-                    .fold( (0f64, 0), |acc, (duration, ticks)| (duration.as_secs_f64() + acc.0, ticks + acc.1) );
-                val.0 / val.1 as f64
-            };
-
-            frame.fill_text(Text {
-                content: format!(
-                    "{} cell{} @ {:.3} Ticks/s.. Queued Ticks: {}",
-                    self.view.cells,
-                    if self.view.cells == 1 { "" } else { "s" },
-                    seconds_per_tick.recip(),
-                    self.last_queued_ticks
-                ),
-                ..text
-            });
 
             frame.into_geometry()
         };

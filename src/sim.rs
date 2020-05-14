@@ -35,7 +35,17 @@ lazy_static::lazy_static! {
     static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
 }
 
-enum Evonomics {}
+struct Evonomics {
+    pub cell_spawn_distribution: Bernoulli,
+}
+
+impl std::default::Default for Evonomics {
+    fn default() -> Evonomics {
+        Evonomics {
+            cell_spawn_distribution: Bernoulli::new(0.00003).unwrap(),
+        }
+    }
+}
 
 impl<'a> gridsim::Sim<'a> for Evonomics {
     type Cell = Cell;
@@ -187,7 +197,8 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             }
 
             // Handle spawning.
-            if cell.brain.is_none() && rng.sample(*CELL_SPAWN_DISTRIBUTION) {
+            if cell.brain.is_none() && rng.sample( *CELL_SPAWN_DISTRIBUTION ) {
+// FIXME  self.cell_spawn_distribution ) {
                 cell.brain = Some(rng.gen());
                 cell.food += SPAWN_FOOD;
             }
@@ -295,6 +306,9 @@ pub fn run_sim(
                     sim = block_in_place(move || sim.tick(times));
                     let view = block_in_place(|| sim.view());
                     outgoing.send(FromSim::View(view)).await.unwrap();
+                },
+                ToSim::SetSpawnChance(new_spawn_chance) => {
+// FIXME                    sim.grid.gimme_cell_somethin = Bernoulli::new( new_spawn_chance ).unwrap();
                 }
             }
         }
@@ -309,6 +323,7 @@ pub enum ToSim {
     // Populate(evo::CellState),
     // Unpopulate(evo::CellState),
     Tick(usize),
+    SetSpawnChance(f64),
 }
 
 /// Messages sent from the grid.
