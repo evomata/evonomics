@@ -9,7 +9,7 @@ use futures::{
 };
 use iced::{
     button, executor, slider, time, Align, Application, Button, Column, Command, Container,
-    Element, HorizontalAlignment, Length, Radio, Row, Settings, Slider, Space, Subscription, Text,
+    Element, HorizontalAlignment, Length, Radio, Row, Settings, Slider, Subscription, Text,
     VerticalAlignment,
 };
 use rand::SeedableRng;
@@ -331,9 +331,9 @@ impl<'a> Application for EvonomicsWorld {
             }
             MenuState::SimMenu => {
                 let grid_controls = Column::new()
-                    .spacing(10)
-                    .padding(10)
-                    .max_width(220)
+                    .spacing(style::SPACING)
+                    .padding(style::PADDING)
+                    .max_width(style::BUTTON_SIZE+style::PADDING as u32)
                     .push(
                         Button::new(&mut self.save_simulation_button, Text::new("save"))
                             .style(style::Theme {})
@@ -353,34 +353,39 @@ impl<'a> Application for EvonomicsWorld {
                         .on_press(Message::ToggleSim),
                     )
                     .push(
-                        Slider::new(
-                            &mut self.speed_slider,
-                            1.0..=100.0,
-                            speed as f32,
-                            Message::SpeedChanged,
-                        )
-                        .style(style::Theme {}),
+                        Container::new( 
+                            Column::new()
+                            .padding(style::PADDING)
+                            .push(
+                                Slider::new(
+                                    &mut self.speed_slider,
+                                    1.0..=100.0,
+                                    speed as f32,
+                                    Message::SpeedChanged,
+                                )
+                                .style(style::Theme {}),
+                            )
+                            .push(
+                                Slider::new(
+                                    &mut self.frame_rate_slider,
+                                    1.0..=32.0,
+                                    self.frames_per_second as f32,
+                                    Message::FrameRateChanged,
+                                )
+                                .style(style::Theme {}),
+                            )
+                            .push(
+                                Text::new(format!(
+                                    "ticks/frame: {:<3}\nframes/second: {:<3})",
+                                    speed, self.frames_per_second
+                                ))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                            )
+                        ).style(style::Theme {})
                     )
-                    .push(
-                        Slider::new(
-                            &mut self.frame_rate_slider,
-                            1.0..=32.0,
-                            self.frames_per_second as f32,
-                            Message::FrameRateChanged,
-                        )
-                        .style(style::Theme {}),
-                    )
-                    .push(
-                        Text::new(format!(
-                            "{} Ticks/frame (fps {})",
-                            speed, self.frames_per_second
-                        ))
-                        .size(16)
-                        .vertical_alignment(VerticalAlignment::Bottom)
-                        .horizontal_alignment(HorizontalAlignment::Center)
-                        .width(Length::Fill),
-                    )
-                    .push(Space::new(Length::Fill, Length::Shrink))
                     .push(
                         Button::new(&mut self.toggle_grid_button, Text::new("Toggle Grid"))
                             .style(style::Theme {})

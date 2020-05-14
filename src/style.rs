@@ -4,6 +4,8 @@ pub struct Theme {}
 
 pub const MAIN_MENU_COLLUMN_WIDTH: u32 = 350;
 pub const BUTTON_SIZE: u32 = 200;
+pub const PADDING: u16 = 10;
+pub const SPACING: u16 = 20;
 
 macro_rules! color_const {
     ( $r:expr, $g:expr, $b:expr ) => {

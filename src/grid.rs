@@ -53,7 +53,7 @@ impl Grid {
             grid_cache: Cache::default(),
             translation: Vector::new(initial_x, initial_y),
             scaling: 1.0,
-            show_lines: true,
+            show_lines: false,
             tick_durations: vec![].into(),
             tick_start: Instant::now(),
             last_queued_ticks: 0,
