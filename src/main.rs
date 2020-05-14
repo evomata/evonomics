@@ -289,8 +289,9 @@ impl<'a> Application for EvonomicsWorld {
                     )
                     .push(
                         Text::new(format!(
-                            "Sim Dimension {} (cells {})",
+                            "Sim Width {:<5} Height {:<5} Area {}",
                             self.width,
+                            self.aspect_ratio.get_height(self.width),
                             self.width * self.aspect_ratio.get_height(self.width)
                         ))
                         .size(16)
