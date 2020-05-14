@@ -26,24 +26,22 @@ const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
 const SOURCE_FOOD_SPAWN: usize = 100;
 
+// FIXME
+static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
+
 lazy_static::lazy_static! {
     static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.1).unwrap();
     // static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0).unwrap();
     static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
     static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
-    static ref CELL_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.00003).unwrap();
     static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
 }
 
-struct Evonomics {
-    pub cell_spawn_distribution: Bernoulli,
-}
+struct Evonomics {}
 
 impl std::default::Default for Evonomics {
     fn default() -> Evonomics {
-        Evonomics {
-            cell_spawn_distribution: Bernoulli::new(0.00003).unwrap(),
-        }
+        Evonomics {}
     }
 }
 
@@ -197,8 +195,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             }
 
             // Handle spawning.
-            if cell.brain.is_none() && rng.sample( *CELL_SPAWN_DISTRIBUTION ) {
-// FIXME  self.cell_spawn_distribution ) {
+            if cell.brain.is_none() && unsafe { rng.sample( match CELL_SPAWN_DISTRIBUTION { Some(dist) => {dist}, None => {Bernoulli::new(0.00003).unwrap()} } ) } {
                 cell.brain = Some(rng.gen());
                 cell.food += SPAWN_FOOD;
             }
@@ -308,7 +305,7 @@ pub fn run_sim(
                     outgoing.send(FromSim::View(view)).await.unwrap();
                 },
                 ToSim::SetSpawnChance(new_spawn_chance) => {
-// FIXME                    sim.grid.gimme_cell_somethin = Bernoulli::new( new_spawn_chance ).unwrap();
+                    unsafe { CELL_SPAWN_DISTRIBUTION = Some(Bernoulli::new( new_spawn_chance ).unwrap()); }
                 }
             }
         }
