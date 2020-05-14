@@ -114,6 +114,8 @@ fn reciever_command(rx: Receiver<sim::FromSim>) -> Command<Message> {
     })
 }
 
+const SPAWN_CURVE: f64 = 0.000000001;
+
 fn spawn_rate(
     is_inverse_rate_type: bool,
     cell_count: usize,
@@ -124,8 +126,7 @@ fn spawn_rate(
         // at rate=0, a new cell in every row
         1.0 / (cell_count as f64 * spawn_rate as f64 * 10.0 + height as f64)
     } else {
-        // at rate=1, a new cell in every row
-        spawn_rate as f64 / height as f64
+        (SPAWN_CURVE.powf(1.0 - spawn_rate as f64) - SPAWN_CURVE) / (1.0 - SPAWN_CURVE)
     }
 }
 
@@ -288,7 +289,7 @@ impl<'a> Application for EvonomicsWorld {
                     Some(ref mut tx) => {
                         // If the channel is full, dont send it.
                         tx.try_send(sim::ToSim::Tick(self.speed)).ok();
-                        self.update( Message::SpawnRateChanged( self.spawn_rate ) );
+                        self.update(Message::SpawnRateChanged(self.spawn_rate));
                     }
                     None => {}
                 }
@@ -482,7 +483,7 @@ impl<'a> Application for EvonomicsWorld {
                         .push(
                             Slider::new(
                                 &mut self.spawn_slider,
-                                0.001..=2.0,
+                                0.0..=1.0,
                                 self.spawn_rate,
                                 Message::SpawnRateChanged,
                             )
