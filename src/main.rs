@@ -288,6 +288,7 @@ impl<'a> Application for EvonomicsWorld {
                     Some(ref mut tx) => {
                         // If the channel is full, dont send it.
                         tx.try_send(sim::ToSim::Tick(self.speed)).ok();
+                        self.update( Message::SpawnRateChanged( self.spawn_rate ) );
                     }
                     None => {}
                 }
@@ -471,7 +472,7 @@ impl<'a> Application for EvonomicsWorld {
                                 Text::new(if self.is_inverse_rate_type {
                                     "Currently Inverse"
                                 } else {
-                                    "Currently Proportional"
+                                    "Currently Constant"
                                 }),
                             )
                             .style(style::Theme::Nested)
