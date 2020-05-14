@@ -126,7 +126,7 @@ impl<'a> Application for EvonomicsWorld {
                 dimension_slider: Default::default(),
                 width: 512,
                 grid_openness_slider: Default::default(),
-                openness: 100,
+                openness: 1,
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
                 next_speed: None,
@@ -162,8 +162,13 @@ impl<'a> Application for EvonomicsWorld {
                 self.menu_state = MenuState::SimMenu;
                 self.is_running_sim = true;
 
-                let (sim_tx, sim_rx, sim_runner) =
-                    sim::run_sim(2, 1, self.width, self.aspect_ratio.get_height(self.width), self.openness);
+                let (sim_tx, sim_rx, sim_runner) = sim::run_sim(
+                    2,
+                    1,
+                    self.width,
+                    self.aspect_ratio.get_height(self.width),
+                    self.openness,
+                );
 
                 self.sim_tx = Some(sim_tx);
                 self.grid = Some(grid::Grid::new(
@@ -257,11 +262,11 @@ impl<'a> Application for EvonomicsWorld {
                     .push(
                         Slider::new(
                             &mut self.grid_openness_slider,
-                            0.0..=1000.0,
+                            0.0..=10.0,
                             self.openness as f32,
                             Message::OpennessSet,
                         )
-                        .style(style::Theme {})
+                        .style(style::Theme {}),
                     )
                     .push(
                         Text::new(format!(

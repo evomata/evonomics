@@ -9,11 +9,15 @@ fn wrap(pos: usize, shape: usize, delt: isize) -> usize {
     (pos + (shape as isize + delt) as usize) % shape
 }
 
+pub fn dir(pos: (usize, usize), shape: (usize, usize), delta: (isize, isize)) -> (usize, usize) {
+    (wrap(pos.0, shape.0, delta.0), wrap(pos.1, shape.1, delta.1))
+}
+
 fn dirs(
     pos: (usize, usize),
     shape: (usize, usize),
 ) -> impl Iterator<Item = (usize, usize)> + Clone {
-    let dir = |delt: (isize, isize)| (wrap(pos.0, shape.0, delt.0), wrap(pos.1, shape.1, delt.1));
+    let dir = |delta: (isize, isize)| dir(pos, shape, delta);
     once(dir((1, 0)))
         .chain(once(dir((0, 1))))
         .chain(once(dir((-1, 0))))

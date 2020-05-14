@@ -332,17 +332,53 @@ pub struct Sim {
 
 impl Sim {
     fn new(width: usize, height: usize, openness: usize) -> Self {
+        use crate::gridgen;
         let mut grid = SquareGrid::<Evonomics>::new(width, height);
         let rng = unsafe { rng() };
-        let walls = crate::gridgen::generate_walls(rng, (height, width));
+        let cooridor_size = openness + 1;
+        let (open_width, open_height) = (width / cooridor_size, height / cooridor_size);
+        let os = (open_height, open_width);
+        let walls = gridgen::generate_walls(rng, os);
         for (ix, cell) in grid.get_cells_mut().iter_mut().enumerate() {
             if rng.sample(*SOURCE_SPAWN_DISTRIBUTION) {
                 cell.ty = CellType::Source;
             }
             let x = ix % width;
             let y = ix / width;
-            
-            if walls[(y, x)] && rng.sample( Bernoulli::new( 1000.0 / (openness+1000) as f64 ).unwrap() ) {
+            let ox = x / cooridor_size;
+            let oy = y / cooridor_size;
+            if ox >= open_width || oy >= open_height {
+                continue;
+            }
+            let op = (oy, ox);
+
+            let x_boundary = ox * cooridor_size == x;
+            let y_boundary = oy * cooridor_size == y;
+
+            let dir = |dy, dx| walls[gridgen::dir(op, os, (dy, dx))];
+            // let hside =
+            //     |dy, dx| (dir(dy, dx) && dir(dy + 1, dx)) || (dir(dy, dx) && dir(dy - 1, dx));
+            // let vside =
+            //     |dy, dx| (dir(dy, dx) && dir(dy, dx + 1)) || (dir(dy, dx) && dir(dy, dx - 1));
+            // let hend = |dy, dx| {
+            //     !dir(dy, dx) && dir(dy, dx - 1) && !dir(dy - 1, dx - 1) && !dir(dy + 1, dx - 1)
+            // };
+            // let vend = |dy, dx| {
+            //     !dir(dy, dx) && dir(dy - 1, dx) && !dir(dy - 1, dx - 1) && !dir(dy - 1, dx + 1)
+            // };
+            // let hwall =
+            //     |dy, dx| ((hside(dy, dx) || hside(dy, dx - 1)) && (dir(dy, dx) ^ dir(dy, dx - 1)));
+            // let vwall = |dy, dx| {
+            //     ((vside(dy, dx) || vside(dy - 1, dx)) && (dir(dy, dx) ^ dir(dy - 1, dx)))
+            //         || vend(dy, dx)
+            // };
+            let hwall = |dy, dx| dir(dy, dx) ^ dir(dy, dx - 1);
+            let vwall = |dy, dx| dir(dy, dx) ^ dir(dy - 1, dx);
+
+            if dir(0, 0) {
+                cell.ty = CellType::Source;
+            }
+            if (x_boundary && hwall(0, 0)) || (y_boundary && vwall(0, 0)) {
                 cell.ty = CellType::Wall;
             }
         }
