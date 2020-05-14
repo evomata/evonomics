@@ -354,8 +354,8 @@ impl Sim {
         use crate::gridgen;
         let mut grid = SquareGrid::<Evonomics>::new(width, height);
         let rng = unsafe { rng() };
-        let cooridor_size = openness + 1;
-        let (open_width, open_height) = (width / cooridor_size, height / cooridor_size);
+        let open_scale = openness + 1;
+        let (open_width, open_height) = (width / open_scale, height / open_scale);
         let os = (open_height, open_width);
         let walls = gridgen::generate_walls(rng, os);
         for (ix, cell) in grid.get_cells_mut().iter_mut().enumerate() {
@@ -364,8 +364,8 @@ impl Sim {
             }
             let x = ix % width;
             let y = ix / width;
-            let ox = x / cooridor_size;
-            let oy = y / cooridor_size;
+            let ox = x / open_scale;
+            let oy = y / open_scale;
             if ox >= open_width || oy >= open_height {
                 continue;
             }
