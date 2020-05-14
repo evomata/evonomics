@@ -26,7 +26,7 @@ impl From<sim::View> for Message {
 }
 
 pub struct Grid {
-    min_scaling: f32,
+    width: usize,
     view: sim::View,
     interaction: Interaction,
     life_cache: Cache,
@@ -44,7 +44,7 @@ impl Grid {
         let initial_x: f32 = -((CELL_SIZE * width) as f32) * 0.5;
         let initial_y: f32 = -((CELL_SIZE * height) as f32) * 0.5;
         Self {
-            min_scaling: 0.105 * 512.0 / width as f32,
+            width: width,
             view: sim::View::default(),
             interaction: Interaction::None,
             life_cache: Cache::default(),
@@ -122,6 +122,7 @@ impl canvas::Program<()> for Grid {
         }
 
         let cursor_position = cursor.position_in(&bounds)?;
+        let min_scaling = bounds.width / ( self.width * CELL_SIZE ) as f32;
 
         match event {
             Event::Mouse(mouse_event) => match mouse_event {
@@ -164,13 +165,13 @@ impl canvas::Program<()> for Grid {
                 }
                 mouse::Event::WheelScrolled { delta } => match delta {
                     mouse::ScrollDelta::Lines { y, .. } | mouse::ScrollDelta::Pixels { y, .. } => {
-                        if y < 0.0 && self.scaling > self.min_scaling
+                        if y < 0.0 && self.scaling > min_scaling
                             || y > 0.0 && self.scaling < MAX_SCALING
                         {
                             let old_scaling = self.scaling;
 
                             self.scaling = (self.scaling * (1.0 + y / 30.0))
-                                .max(self.min_scaling)
+                                .max(min_scaling)
                                 .min(MAX_SCALING);
 
                             if let Some(cursor_to_center) = cursor.position_from(bounds.center()) {
