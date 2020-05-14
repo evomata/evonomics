@@ -19,8 +19,7 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 mod brain;
 
 const SPAWN_FOOD: usize = 16;
-/// Food penalty for moving. Keep this as a multiple of 2.
-const MOVE_PENALTY: usize = 2;
+const MOVE_PENALTY: usize = 0;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
