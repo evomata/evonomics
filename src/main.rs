@@ -240,7 +240,7 @@ impl<'a> Application for EvonomicsWorld {
                             Text::new("Run Simulation")
                                 .horizontal_alignment(HorizontalAlignment::Center),
                         )
-                        .style(style::Theme {})
+                        .style(style::Theme::Default)
                         .min_width(style::MAIN_MENU_COLLUMN_WIDTH)
                         .on_press(Message::SimView),
                     )
@@ -266,7 +266,7 @@ impl<'a> Application for EvonomicsWorld {
                             self.openness as f32,
                             Message::OpennessSet,
                         )
-                        .style(style::Theme {}),
+                        .style(style::Theme::Default),
                     )
                     .push(
                         Text::new(format!(
@@ -285,7 +285,7 @@ impl<'a> Application for EvonomicsWorld {
                             self.width as f32,
                             Message::DimensionSet,
                         )
-                        .style(style::Theme {}),
+                        .style(style::Theme::Default),
                     )
                     .push(
                         Text::new(format!(
@@ -304,7 +304,7 @@ impl<'a> Application for EvonomicsWorld {
                     &mut self.load_save_button,
                     Text::new("Load Save").horizontal_alignment(HorizontalAlignment::Center),
                 )
-                .style(style::Theme {})
+                .style(style::Theme::Default)
                 .min_width(style::MAIN_MENU_COLLUMN_WIDTH);
 
                 Container::new(
@@ -322,7 +322,7 @@ impl<'a> Application for EvonomicsWorld {
                                 .push(load_save_column),
                         ),
                 )
-                .style(style::Theme {})
+                .style(style::Theme::Default)
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
@@ -336,7 +336,7 @@ impl<'a> Application for EvonomicsWorld {
                     .max_width(style::BUTTON_SIZE+style::PADDING as u32)
                     .push(
                         Button::new(&mut self.save_simulation_button, Text::new("save"))
-                            .style(style::Theme {})
+                            .style(style::Theme::Default)
                             .min_width(style::BUTTON_SIZE),
                     )
                     .push(
@@ -348,7 +348,7 @@ impl<'a> Application for EvonomicsWorld {
                                 Text::new("Run")
                             },
                         )
-                        .style(style::Theme {})
+                        .style(style::Theme::Default)
                         .min_width(style::BUTTON_SIZE)
                         .on_press(Message::ToggleSim),
                     )
@@ -363,7 +363,17 @@ impl<'a> Application for EvonomicsWorld {
                                     speed as f32,
                                     Message::SpeedChanged,
                                 )
-                                .style(style::Theme {}),
+                                .style(style::Theme::Default),
+                            )
+                            .push(
+                                Text::new(format!(
+                                    "ticks/frame: {:<3}",
+                                    speed
+                                ))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
                             )
                             .push(
                                 Slider::new(
@@ -372,23 +382,23 @@ impl<'a> Application for EvonomicsWorld {
                                     self.frames_per_second as f32,
                                     Message::FrameRateChanged,
                                 )
-                                .style(style::Theme {}),
+                                .style(style::Theme::Default),
                             )
                             .push(
                                 Text::new(format!(
-                                    "ticks/frame: {:<3}\nframes/second: {:<3})",
-                                    speed, self.frames_per_second
+                                    "frames/second: {:<3}",
+                                    self.frames_per_second
                                 ))
                                 .size(16)
                                 .vertical_alignment(VerticalAlignment::Bottom)
                                 .horizontal_alignment(HorizontalAlignment::Center)
                                 .width(Length::Fill),
                             )
-                        ).style(style::Theme {})
+                        ).style(style::Theme::Nested)
                     )
                     .push(
                         Button::new(&mut self.toggle_grid_button, Text::new("Toggle Grid"))
-                            .style(style::Theme {})
+                            .style(style::Theme::Default)
                             .min_width(style::BUTTON_SIZE)
                             .on_press(Message::ToggleGrid),
                     );
@@ -407,7 +417,7 @@ impl<'a> Application for EvonomicsWorld {
                             }),
                     ),
                 )
-                .style(style::Theme {})
+                .style(style::Theme::Default)
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
