@@ -44,6 +44,7 @@ pub fn combine(rng: &mut impl Rng, brains: impl IntoIterator<Item = Brain>) -> B
     Brain {
         color: merge_colors(rng, brains.iter().map(|b| b.color)),
         rotation: rng.gen_range(0, 4),
+        generation: 0,
         memory,
         code,
     }
@@ -55,6 +56,7 @@ pub struct Brain {
     color: f64,
     /// Rotation counter-clockwise (direction of iteration in gridsim)
     rotation: usize,
+    pub generation: usize,
     memory: ArrayVec<[f64; NUM_STATE]>,
     code: Arc<Dna>,
 }
@@ -122,6 +124,7 @@ impl Distribution<Brain> for Standard {
         Brain {
             color,
             rotation,
+            generation: 0,
             memory,
             code,
         }

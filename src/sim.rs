@@ -141,7 +141,15 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             if nd == dir {
                                 Move {
                                     food: cell.food / 2 - MOVE_PENALTY / 2,
-                                    brain: cell.brain.clone(),
+                                    brain: { 
+                                        if let Some(mut t) = cell.brain.clone() {
+                                            t.generation += 1; 
+                                            Some(t) 
+                                        } 
+                                        else {
+                                            None
+                                        } 
+                                    },
                                 }
                             } else {
                                 Move {
@@ -338,7 +346,7 @@ pub enum FromSim {
 /// Contains the data to display the simulation.
 #[derive(Default, Debug)]
 pub struct View {
-    pub colors: Array2<Color>,
+    pub colors: Array2< (Color, usize) >,
     pub cells: usize,
     pub ticks: usize,
 }
@@ -398,8 +406,11 @@ impl Sim {
                 self.grid
                     .get_cells()
                     .par_iter()
-                    .map(|c| c.color())
-                    .collect::<Vec<Color>>(),
+                    .map( |c| (c.color(), match &c.brain {
+                        Some(brain) => { brain.generation },
+                        None => { 0 },
+                    } ) )
+                    .collect::<Vec< (Color, usize) >>(),
             )
             .unwrap(),
             cells: self.grid.get_cells().iter().fold(0, |acc, cell| {

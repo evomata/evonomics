@@ -249,9 +249,40 @@ impl canvas::Program<()> for Grid {
 
                 let region = self.visible_region(frame.size());
 
-                for ((y, x), &color) in self.view.colors.indexed_iter() {
-                    if region.contained(x, y) {
-                        frame.fill_rectangle(Point::new(x as f32, y as f32), Size::UNIT, color);
+                if self.scaling >= 1.5 {
+                    for ((y, x), &(color, ancestor_count)) in self.view.colors.indexed_iter() {
+                        if region.contained(x, y) {
+                            frame.fill_rectangle(Point::new(x as f32, y as f32), Size::UNIT, color);
+                            // draw ancestry markings
+                            let mut marking: u32 = 0;
+                            let mut x_off = 0.0;
+                            let mut y_off = 0.0;
+                            let mut consumed = 0x0;
+                            while ancestor_count > consumed { // 0, F, FF, FFF, ...
+                                let c = ( ancestor_count & ( 0xF * usize::pow(0x10, marking) ) ) / usize::pow(0x10,marking) as usize;
+                                let value = ((15.0-c as f32)/15.0) as f32;
+                                frame.fill_rectangle( Point::new(x as f32 + 0.3 + x_off, y as f32 + 0.3 + y_off) , Size::new(0.05,0.05), Color::from_rgb( color.r * value, color.g * value, color.b * value ) );
+
+                                let band = marking / 11;
+                                let dir = ( if band == 0 { marking / 3 } else if marking%11 == 0 { 0 } else { marking } )%4; // 0123 right, 4567 down, 89AB left, CDEF up, 10;11;12;13 right, ...
+                                match dir {
+                                    0 => { x_off += if marking % 3 == 1 || marking / 12 == 1 {0.15} else {0.1}; }
+                                    1 => { y_off += if marking % 3 == 1 || marking / 12 == 1 {0.15} else {0.1}; }
+                                    2 => { x_off -= if marking % 3 == 1 || marking / 12 == 1 {0.15} else {0.1}; }
+                                    3 => { y_off -= if marking % 3 == 1 || marking / 12 == 1 {0.15} else {0.1}; }
+                                    _ => { panic!("bad modification made to marking operations"); }
+                                }
+                                consumed += 0xF * usize::pow(0x10, marking);
+                                marking += 1;
+                            }
+                        }
+                    }
+                }
+                else {
+                    for ((y, x), &(color, _)) in self.view.colors.indexed_iter() {
+                        if region.contained(x, y) {
+                            frame.fill_rectangle(Point::new(x as f32, y as f32), Size::UNIT, color);
+                        }
                     }
                 }
             });
