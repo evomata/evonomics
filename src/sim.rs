@@ -23,7 +23,7 @@ const MOVE_PENALTY: usize = 0;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
-const SOURCE_FOOD_SPAWN: usize = 100;
+const SOURCE_FOOD_SPAWN: usize = 8;
 
 // FIXME
 static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
@@ -141,14 +141,13 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             if nd == dir {
                                 Move {
                                     food: cell.food / 2 - MOVE_PENALTY / 2,
-                                    brain: { 
+                                    brain: {
                                         if let Some(mut t) = cell.brain.clone() {
-                                            t.generation += 1; 
-                                            Some(t) 
-                                        } 
-                                        else {
+                                            t.generation += 1;
+                                            Some(t)
+                                        } else {
                                             None
-                                        } 
+                                        }
                                     },
                                 }
                             } else {
@@ -346,7 +345,7 @@ pub enum FromSim {
 /// Contains the data to display the simulation.
 #[derive(Default, Debug)]
 pub struct View {
-    pub colors: Array2< (Color, usize) >,
+    pub colors: Array2<(Color, usize)>,
     pub cells: usize,
     pub ticks: usize,
 }
@@ -406,11 +405,16 @@ impl Sim {
                 self.grid
                     .get_cells()
                     .par_iter()
-                    .map( |c| (c.color(), match &c.brain {
-                        Some(brain) => { brain.generation },
-                        None => { 0 },
-                    } ) )
-                    .collect::<Vec< (Color, usize) >>(),
+                    .map(|c| {
+                        (
+                            c.color(),
+                            match &c.brain {
+                                Some(brain) => brain.generation,
+                                None => 0,
+                            },
+                        )
+                    })
+                    .collect::<Vec<(Color, usize)>>(),
             )
             .unwrap(),
             cells: self.grid.get_cells().iter().fold(0, |acc, cell| {
