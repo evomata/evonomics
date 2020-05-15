@@ -44,7 +44,7 @@ pub fn combine(rng: &mut impl Rng, brains: impl IntoIterator<Item = Brain>) -> B
     Brain {
         color: merge_colors(rng, brains.iter().map(|b| b.color)),
         rotation: rng.gen_range(0, 4),
-        generation: 0,
+        generation: brains.iter().map(|brain| brain.generation).max().unwrap(),
         memory,
         code,
     }

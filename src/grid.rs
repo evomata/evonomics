@@ -258,10 +258,11 @@ impl canvas::Program<()> for Grid {
                             let mut x_off = 0.0;
                             let mut y_off = 0.0;
                             let mut consumed = 0x0;
+                            
                             while ancestor_count > consumed { // 0, F, FF, FFF, ...
                                 let c = ( ancestor_count & ( 0xF * usize::pow(0x10, marking) ) ) / usize::pow(0x10,marking) as usize;
                                 let value = ((15.0-c as f32)/15.0) as f32;
-                                frame.fill_rectangle( Point::new(x as f32 + 0.3 + x_off, y as f32 + 0.3 + y_off) , Size::new(0.05,0.05), Color::from_rgb( color.r * value, color.g * value, color.b * value ) );
+                                frame.fill_rectangle( Point::new(x as f32 + 0.2 + x_off, y as f32 + 0.2 + y_off) , Size::new(0.1,0.1), Color::from_rgb( color.r * value, color.g * value, color.b * value ) );
 
                                 let band = marking / 11;
                                 let dir = ( if band == 0 { marking / 3 } else if marking%11 == 0 { 0 } else { marking } )%4; // 0123 right, 4567 down, 89AB left, CDEF up, 10;11;12;13 right, ...

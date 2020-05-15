@@ -180,7 +180,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
 
             // Handle brain movement.
             let mut brain_moves = moves.clone().iter().flat_map(|m| m.brain);
-            if brain_moves.clone().count() + cell.brain.is_some() as usize >= 2 {
+            if brain_moves.clone().count() + cell.brain.is_some() as usize > 1 {
                 // Brains that enter the same space are combined together.
                 cell.brain = Some(brain::combine(
                     &mut *rng,
