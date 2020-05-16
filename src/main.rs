@@ -549,6 +549,34 @@ impl<'a> Application for EvonomicsWorld {
                 )
                 .style(style::Theme::Nested);
 
+                let bid_ask_ui = Container::new(
+                    Column::new()
+                        .padding(2)
+                        .push(
+                            Text::new("Bid/Ask")
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(image::Image::new(self.bid_ask_graph.clone())),
+                )
+                .style(style::Theme::Nested)
+                .height(Length::Shrink)
+                .width(Length::Fill);
+
+                let reserve_ui = Container::new(
+                    Column::new()
+                        .padding(2)
+                        .push(
+                            Text::new("Reserve")
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(image::Image::new(self.reserve_graph.clone())),
+                )
+                .style(style::Theme::Nested)
+                .height(Length::Shrink)
+                .width(Length::Fill);
+
                 let grid_controls = Column::new()
                     .spacing(style::SPACING)
                     .padding(style::PADDING)
@@ -593,8 +621,8 @@ impl<'a> Application for EvonomicsWorld {
                         .min_width(style::BUTTON_SIZE)
                         .on_press(Message::ToggleGrid),
                     )
-                    .push(image::Image::new(self.bid_ask_graph.clone()))
-                    .push(image::Image::new(self.reserve_graph.clone()));
+                    .push(bid_ask_ui)
+                    .push(reserve_ui);
 
                 Container::new(
                     Row::new().push(
