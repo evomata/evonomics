@@ -57,6 +57,7 @@ struct EvonomicsWorld {
     is_running_sim: bool,
     next_speed: Option<usize>,
     aspect_ratio: AspectRatio,
+    total_tick_count: u64,
 }
 
 enum MenuState {
@@ -124,8 +125,7 @@ fn spawn_rate(
     spawn_rate: f32,
 ) -> f64 {
     if is_inverse_rate_type {
-        // at rate=0, a new cell in every row
-        1.0 / (cell_count as f64 * spawn_rate as f64 * 10.0 + height as f64)
+        spawn_rate as f64 / ( (cell_count+1) * height ) as f64
     } else {
         (SPAWN_CURVE.powf(1.0 - spawn_rate as f64) - SPAWN_CURVE) / (1.0 - SPAWN_CURVE)
     }
@@ -177,6 +177,7 @@ impl<'a> Application for EvonomicsWorld {
                 is_running_sim: false,
                 next_speed: None,
                 aspect_ratio: INITIAL_ASPECT,
+                total_tick_count: 0,
             },
             Command::none(),
         )
@@ -289,7 +290,10 @@ impl<'a> Application for EvonomicsWorld {
                 match self.sim_tx {
                     Some(ref mut tx) => {
                         // If the channel is full, dont send it.
-                        tx.try_send(sim::ToSim::Tick(self.speed)).ok();
+                        match tx.try_send(sim::ToSim::Tick(self.speed)).ok() {
+                            Some(_) => { self.total_tick_count += self.speed as u64; },
+                            None => {},
+                        }
                         self.update(Message::SpawnRateChanged(self.spawn_rate));
                     }
                     None => {}
@@ -472,7 +476,7 @@ impl<'a> Application for EvonomicsWorld {
                             Button::new(
                                 &mut self.toggle_spawn_rate_type_button,
                                 Text::new(if self.is_inverse_rate_type {
-                                    "Currently Inverse"
+                                    "Currently Dynamic"
                                 } else {
                                     "Currently Constant"
                                 }),
@@ -528,6 +532,7 @@ impl<'a> Application for EvonomicsWorld {
                         .on_press(Message::ToggleSim),
                     )
                     .push(fps_controls)
+                    .push( Text::new( format!( "Total Ticks: {}", self.total_tick_count ) ) )
                     .push(spawn_controls)
                     .push(
                         Button::new(
