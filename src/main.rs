@@ -1,5 +1,6 @@
 mod grid;
 pub mod gridgen;
+mod plot;
 pub mod sim;
 mod style;
 
@@ -8,12 +9,14 @@ use futures::{
     prelude::*,
 };
 use iced::{
-    button, executor, slider, time, Align, Application, Button, Column, Command, Container,
+    button, executor, image, slider, time, Align, Application, Button, Column, Command, Container,
     Element, HorizontalAlignment, Length, Radio, Row, Settings, Slider, Subscription, Text,
     VerticalAlignment,
 };
 use rand::SeedableRng;
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
+
+const MAX_GRAPH_TIMES: usize = 170;
 
 std::thread_local! {
     pub static RNG: rand_chacha::ChaCha8Rng = rand_chacha::ChaCha8Rng::from_entropy();
@@ -58,9 +61,11 @@ struct EvonomicsWorld {
     next_speed: Option<usize>,
     aspect_ratio: AspectRatio,
     total_tick_count: u64,
-    bid: Option<i32>,
-    ask: Option<i32>,
-    reserve: u32,
+    bids: VecDeque<i32>,
+    asks: VecDeque<i32>,
+    reserves: VecDeque<u32>,
+    bid_ask_graph: image::Handle,
+    reserve_graph: image::Handle,
 }
 
 enum MenuState {
@@ -181,9 +186,11 @@ impl<'a> Application for EvonomicsWorld {
                 next_speed: None,
                 aspect_ratio: INITIAL_ASPECT,
                 total_tick_count: 0,
-                bid: None,
-                ask: None,
-                reserve: 0,
+                bids: VecDeque::new(),
+                asks: VecDeque::new(),
+                reserves: VecDeque::new(),
+                bid_ask_graph: image::Handle::from_pixels(0, 0, vec![]),
+                reserve_graph: image::Handle::from_pixels(0, 0, vec![]),
             },
             Command::none(),
         )
@@ -206,9 +213,22 @@ impl<'a> Application for EvonomicsWorld {
                         None => {}
                     },
                     sim::FromSim::Market { ask, bid, reserve } => {
-                        self.ask = ask;
-                        self.bid = bid;
-                        self.reserve = reserve;
+                        self.bids.push_back(bid.unwrap_or(0));
+                        self.asks.push_back(ask.unwrap_or(0));
+                        self.reserves.push_back(reserve);
+                        if self.bids.len() > MAX_GRAPH_TIMES {
+                            self.bids.pop_front();
+                            self.asks.pop_front();
+                            self.reserves.pop_front();
+                        }
+                        // Update the bid/ask graph.
+                        let bids: Vec<i32> = self.bids.clone().into();
+                        let asks: Vec<i32> = self.asks.clone().into();
+                        let reserves: Vec<u32> = self.reserves.clone().into();
+                        self.bid_ask_graph = plot::graph_bids_asks(&bids, &asks)
+                            .expect("failed to create bid/ask graph");
+                        self.reserve_graph = plot::graph_reserve(&reserves)
+                            .expect("failed to create reserves graph");
                     }
                 }
                 return reciever_command(stream);
@@ -485,27 +505,6 @@ impl<'a> Application for EvonomicsWorld {
                                 .vertical_alignment(VerticalAlignment::Bottom)
                                 .horizontal_alignment(HorizontalAlignment::Center)
                                 .width(Length::Fill),
-                        )
-                        .push(
-                            Text::new(format!("Bid: {:?}", self.bid))
-                                .size(16)
-                                .vertical_alignment(VerticalAlignment::Bottom)
-                                .horizontal_alignment(HorizontalAlignment::Center)
-                                .width(Length::Fill),
-                        )
-                        .push(
-                            Text::new(format!("Ask: {:?}", self.ask))
-                                .size(16)
-                                .vertical_alignment(VerticalAlignment::Bottom)
-                                .horizontal_alignment(HorizontalAlignment::Center)
-                                .width(Length::Fill),
-                        )
-                        .push(
-                            Text::new(format!("Reserve: {}", self.reserve))
-                                .size(16)
-                                .vertical_alignment(VerticalAlignment::Bottom)
-                                .horizontal_alignment(HorizontalAlignment::Center)
-                                .width(Length::Fill),
                         ),
                 )
                 .style(style::Theme::Nested);
@@ -593,7 +592,9 @@ impl<'a> Application for EvonomicsWorld {
                         .style(style::Theme::Default)
                         .min_width(style::BUTTON_SIZE)
                         .on_press(Message::ToggleGrid),
-                    );
+                    )
+                    .push(image::Image::new(self.bid_ask_graph.clone()))
+                    .push(image::Image::new(self.reserve_graph.clone()));
 
                 Container::new(
                     Row::new().push(

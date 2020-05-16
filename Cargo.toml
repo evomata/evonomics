@@ -5,7 +5,7 @@ authors = ["Geordon Worley <vadixidav@gmail.com>", "Gage Ervin <gage.william.erv
 edition = "2018"
 
 [dependencies]
-iced = { git = "https://github.com/hecrj/iced", rev = "7565d294afd668cc95d85f15662d0704962c9614", features = ["canvas", "tokio", "debug"] }
+iced = { git = "https://github.com/hecrj/iced", rev = "7565d294afd668cc95d85f15662d0704962c9614", features = ["canvas", "tokio", "debug", "image"] }
 tokio = { version = "0.2.20", features = ["blocking"] }
 itertools = "0.9.0"
 rustc-hash = "1.1.0"
@@ -25,6 +25,7 @@ nalgebra = "0.21.0"
 num-traits = "0.2.11"
 slab = "0.4.2"
 min-max-heap = "1.3.0"
+plotters = "0.2.14"
 
 [profile.release]
 debug = true
