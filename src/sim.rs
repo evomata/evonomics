@@ -413,7 +413,16 @@ impl Sim {
     pub fn tick(mut self, times: usize) -> Self {
         self.frames_elapsed = times;
         for _ in 0..times {
+            // Cycle the grid.
             self.grid.cycle();
+            // Extract all trades.
+            let trades: Vec<(usize, Trade)> = self
+                .grid
+                .get_cells_mut()
+                .iter_mut()
+                .enumerate()
+                .filter_map(|(ix, cell)| cell.trade.take().map(|trade| (ix, trade)))
+                .collect();
         }
         self
     }
