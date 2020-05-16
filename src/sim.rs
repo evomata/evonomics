@@ -307,9 +307,9 @@ impl Default for Cell {
     }
 }
 
-fn cap_color(n: f32) -> f32 {
-    if n > 0.3 {
-        0.3
+fn cap_color(n: f32, cap: f32) -> f32 {
+    if n > cap {
+        cap
     } else {
         n
     }
@@ -323,8 +323,8 @@ impl Cell {
                 if self.brain.is_some() {
                     self.brain.as_ref().unwrap().color()
                 } else {
-                    let food_color = cap_color(FOOD_COLOR_MULTIPLIER * self.food as f32);
-                    let money_color = cap_color(MONEY_COLOR_MULTIPLIER * self.money as f32);
+                    let food_color = cap_color(FOOD_COLOR_MULTIPLIER * self.food as f32, 0.3);
+                    let money_color = cap_color(MONEY_COLOR_MULTIPLIER * self.money as f32, 1.0);
                     Color::from_rgb(
                         money_color,
                         if food_color > money_color {
