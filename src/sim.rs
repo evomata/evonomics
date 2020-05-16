@@ -20,6 +20,7 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 mod brain;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
+const MONEY_COLOR_MULTIPLIER: f32 = 0.3;
 
 // starting food for cell
 const SPAWN_FOOD: u32 = 16;
@@ -322,10 +323,16 @@ impl Cell {
                 if self.brain.is_some() {
                     self.brain.as_ref().unwrap().color()
                 } else {
+                    let food_color = cap_color(FOOD_COLOR_MULTIPLIER * self.food as f32);
+                    let money_color = cap_color(MONEY_COLOR_MULTIPLIER * self.money as f32);
                     Color::from_rgb(
-                        0.0,
-                        cap_color(FOOD_COLOR_MULTIPLIER * self.food as f32),
-                        0.0,
+                        money_color,
+                        if food_color > money_color {
+                            food_color
+                        } else {
+                            money_color
+                        },
+                        money_color,
                     )
                 }
             }
