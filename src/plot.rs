@@ -23,7 +23,7 @@ pub fn graph_bids_asks(
 
     let mut chart = ChartBuilder::on(&root)
         .set_label_area_size(LabelAreaPosition::Top, 5)
-        .set_label_area_size(LabelAreaPosition::Left, 30)
+        .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
         .build_ranged(0..bids.len(), min..max)?
         .set_secondary_coord(0..bids.len(), min..max);
