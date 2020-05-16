@@ -23,7 +23,7 @@ const MOVE_PENALTY: u32 = 0;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
-const SOURCE_FOOD_SPAWN: u32 = 8;
+const SOURCE_FOOD_SPAWN: u32 = 0;
 
 // FIXME
 static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
