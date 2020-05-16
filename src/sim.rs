@@ -544,6 +544,7 @@ impl Sim {
                     existing.food -= existing.food.signum() * num;
                 }
             };
+            // Allows an ask order to be fulfilled by the reserve at a rate of one money per food.
             let fulfill_reserve = |sim: &mut Self, order: &mut Order| {
                 let num = std::cmp::min(order.food, sim.reserve as i32);
                 {
@@ -554,6 +555,18 @@ impl Sim {
                 }
                 sim.reserve -= num as u32;
             };
+            // Allows a bid order to buy food from the reserve at one money per food.
+            let food_reserve = |sim: &mut Self, order: &mut Order| {
+                // We will take as much as there is in the order.
+                let num = -order.food;
+                {
+                    let cell = &mut sim.grid.get_cells_mut()[order.index];
+                    cell.money = (cell.money as i32 + num * order.food.signum()) as u32;
+                    cell.food = (cell.food as i32 - num * order.food.signum()) as u32;
+                    order.food -= order.food.signum() * num;
+                }
+                sim.reserve += num as u32;
+            };
             for mut order in orders {
                 let intent = order.intent();
 
@@ -563,10 +576,20 @@ impl Sim {
                         loop {
                             if let Some(mut ask) = asks.pop_min() {
                                 if ask.rate > order.rate {
+                                    // If the reserve gives an acceptable offer, then allow it.
+                                    if order.rate >= 1 {
+                                        food_reserve(&mut self, &mut order);
+                                    }
                                     // The best asking price was higher than our bid, so just push the bid to the bids.
-                                    bids.push(order);
+                                    if order.food != 0 {
+                                        bids.push(order);
+                                    }
                                     break;
                                 } else {
+                                    // If the reserve gives a better offer, then allow it.
+                                    if ask.rate > 1 {
+                                        food_reserve(&mut self, &mut order);
+                                    }
                                     // Fulfill as much as possible on both ends.
                                     fulfill(self.grid.get_cells_mut(), &mut order, &mut ask);
 
@@ -581,8 +604,13 @@ impl Sim {
                                     }
                                 }
                             } else {
+                                if order.rate >= 1 {
+                                    food_reserve(&mut self, &mut order);
+                                }
                                 // There were no asks, so push our bid.
-                                bids.push(order);
+                                if order.food != 0 {
+                                    bids.push(order);
+                                }
                                 break;
                             }
                         }
@@ -604,7 +632,7 @@ impl Sim {
                                     break;
                                 } else {
                                     // If the reserve provides a better deal, then use the reserve.
-                                    if order.rate < 1 {
+                                    if bid.rate < 1 {
                                         fulfill_reserve(&mut self, &mut order);
                                     }
                                     // Fulfill as much as possible on both ends.
