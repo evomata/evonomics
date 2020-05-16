@@ -22,6 +22,7 @@ pub fn graph_bids_asks(
     root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
+        .set_label_area_size(LabelAreaPosition::Top, 5)
         .set_label_area_size(LabelAreaPosition::Left, 30)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
         .build_ranged(0..bids.len(), min..max)?
@@ -58,6 +59,7 @@ pub fn graph_reserve(reserves: &[u32]) -> Result<image::Handle, Box<dyn std::err
     root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
+        .set_label_area_size(LabelAreaPosition::Top, 5)
         .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
         .build_ranged(0..reserves.len(), min..max)?;

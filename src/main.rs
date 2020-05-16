@@ -180,7 +180,7 @@ impl<'a> Application for EvonomicsWorld {
                 dimension_slider: Default::default(),
                 width: INITIAL_WIDTH,
                 grid_openness_slider: Default::default(),
-                openness: 1,
+                openness: 5,
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
                 next_speed: None,
