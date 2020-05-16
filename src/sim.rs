@@ -537,6 +537,16 @@ impl Sim {
                     existing.food -= existing.food.signum() * num;
                 }
             };
+            let fulfill_reserve = |sim: &mut Self, order: &mut Order| {
+                let num = std::cmp::min(order.food, sim.reserve as i32);
+                {
+                    let cell = &mut sim.grid.get_cells_mut()[order.index];
+                    cell.money = (cell.money as i32 + num * order.food.signum()) as u32;
+                    cell.food = (cell.food as i32 - num * order.food.signum()) as u32;
+                    order.food -= order.food.signum() * num;
+                }
+                sim.reserve -= num as u32;
+            };
             for mut order in orders {
                 let intent = order.intent();
 
@@ -578,18 +588,7 @@ impl Sim {
                                     // The best bid price was lower than our ask, so just push the ask to the asks.
                                     // Try to sell to the reserve.
                                     if order.rate <= 1 {
-                                        let num = std::cmp::min(order.food, self.reserve as i32);
-                                        {
-                                            let cell = &mut self.grid.get_cells_mut()[order.index];
-                                            cell.money = (cell.money as i32
-                                                + num * order.food.signum())
-                                                as u32;
-                                            cell.food = (cell.food as i32
-                                                - num * order.food.signum())
-                                                as u32;
-                                            order.food -= order.food.signum() * num;
-                                        }
-                                        self.reserve -= num as u32;
+                                        fulfill_reserve(&mut self, &mut order);
                                     }
                                     // There were no bids, so push our ask.
                                     if order.food != 0 {
@@ -597,6 +596,10 @@ impl Sim {
                                     }
                                     break;
                                 } else {
+                                    // If the reserve provides a better deal, then use the reserve.
+                                    if order.rate < 1 {
+                                        fulfill_reserve(&mut self, &mut order);
+                                    }
                                     // Fulfill as much as possible on both ends.
                                     fulfill(self.grid.get_cells_mut(), &mut order, &mut bid);
 
@@ -613,16 +616,7 @@ impl Sim {
                             } else {
                                 // Try to sell to the reserve.
                                 if order.rate <= 1 {
-                                    let num = std::cmp::min(order.food, self.reserve as i32);
-                                    {
-                                        let cell = &mut self.grid.get_cells_mut()[order.index];
-                                        cell.money =
-                                            (cell.money as i32 + num * order.food.signum()) as u32;
-                                        cell.food =
-                                            (cell.food as i32 - num * order.food.signum()) as u32;
-                                        order.food -= order.food.signum() * num;
-                                    }
-                                    self.reserve -= num as u32;
+                                    fulfill_reserve(&mut self, &mut order);
                                 }
                                 // There were no bids, so push our ask.
                                 if order.food != 0 {
