@@ -28,7 +28,7 @@ const MOVE_PENALTY: u32 = 0;
 // cornacopia bounty
 const SOURCE_FOOD_SPAWN: u32 = 8;
 
-const RESERVE_DIVISOR: u32 = 128;
+const RESERVE_DIVISOR: u32 = 1024;
 
 // FIXME
 static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
