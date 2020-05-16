@@ -124,8 +124,7 @@ fn spawn_rate(
     spawn_rate: f32,
 ) -> f64 {
     if is_inverse_rate_type {
-        // at rate=0, a new cell in every row
-        1.0 / (cell_count as f64 * spawn_rate as f64 * 10.0 + height as f64)
+        spawn_rate as f64 / ( (cell_count+1) * height ) as f64
     } else {
         (SPAWN_CURVE.powf(1.0 - spawn_rate as f64) - SPAWN_CURVE) / (1.0 - SPAWN_CURVE)
     }
@@ -472,7 +471,7 @@ impl<'a> Application for EvonomicsWorld {
                             Button::new(
                                 &mut self.toggle_spawn_rate_type_button,
                                 Text::new(if self.is_inverse_rate_type {
-                                    "Currently Inverse"
+                                    "Currently Dynamic"
                                 } else {
                                     "Currently Constant"
                                 }),
