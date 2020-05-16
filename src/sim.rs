@@ -30,6 +30,8 @@ const SOURCE_FOOD_SPAWN: u32 = 8;
 
 const RESERVE_DIVISOR: u32 = 128;
 
+const REPO: bool = true;
+
 // FIXME
 static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
 
@@ -576,20 +578,12 @@ impl Sim {
                         loop {
                             if let Some(mut ask) = asks.pop_min() {
                                 if ask.rate > order.rate {
-                                    // If the reserve gives an acceptable offer, then allow it.
-                                    if order.rate >= 1 {
-                                        food_reserve(&mut self, &mut order);
-                                    }
                                     // The best asking price was higher than our bid, so just push the bid to the bids.
                                     if order.food != 0 {
                                         bids.push(order);
                                     }
                                     break;
                                 } else {
-                                    // If the reserve gives a better offer, then allow it.
-                                    if ask.rate > 1 {
-                                        food_reserve(&mut self, &mut order);
-                                    }
                                     // Fulfill as much as possible on both ends.
                                     fulfill(self.grid.get_cells_mut(), &mut order, &mut ask);
 
@@ -604,8 +598,11 @@ impl Sim {
                                     }
                                 }
                             } else {
-                                if order.rate >= 1 {
-                                    food_reserve(&mut self, &mut order);
+                                if REPO {
+                                    // Only repo the money if there are no other ask offers out there.
+                                    if order.rate >= 1 {
+                                        food_reserve(&mut self, &mut order);
+                                    }
                                 }
                                 // There were no asks, so push our bid.
                                 if order.food != 0 {
