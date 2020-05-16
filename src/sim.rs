@@ -160,7 +160,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                     (
                         Diff {
                             consume: cell.food / 2 + 1 + MOVE_PENALTY / 2,
-                            spend: 0,
+                            spend: cell.money / 2,
                             moved: false,
                             trade: None,
                         },
@@ -168,7 +168,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             if nd == dir {
                                 Move {
                                     food: cell.food / 2 - MOVE_PENALTY / 2,
-                                    money: 0,
+                                    money: cell.money / 2,
                                     brain: {
                                         if let Some(mut t) = cell.brain.clone() {
                                             t.generation += 1;
