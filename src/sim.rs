@@ -18,12 +18,12 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 
 mod brain;
 
-const SPAWN_FOOD: usize = 16;
-const MOVE_PENALTY: usize = 0;
+const SPAWN_FOOD: u32 = 16;
+const MOVE_PENALTY: u32 = 0;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
-const SOURCE_FOOD_SPAWN: usize = 8;
+const SOURCE_FOOD_SPAWN: u32 = 8;
 
 // FIXME
 static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
@@ -34,6 +34,12 @@ lazy_static::lazy_static! {
     static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
     static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
     static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+}
+
+#[derive(Clone, Debug)]
+pub struct Trade {
+    pub money: i32,
+    pub food: i32,
 }
 
 struct Evonomics {}
@@ -58,6 +64,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                 Diff {
                     consume: 0,
                     moved: true,
+                    trade: None,
                 },
                 MooreNeighbors::new(|_| Move {
                     food: 0,
@@ -66,11 +73,12 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             );
         }
         // Closure for just existing (consuming food and nothing happening).
-        let just_exist = || {
+        let just_exist = |trade| {
             (
                 Diff {
                     consume: 1,
                     moved: false,
+                    trade,
                 },
                 MooreNeighbors::new(|_| Move {
                     food: 0,
@@ -111,6 +119,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                         Diff {
                             consume: cell.food,
                             moved: true,
+                            trade: None,
                         },
                         MooreNeighbors::new(|nd| {
                             if nd == dir {
@@ -127,7 +136,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                         }),
                     )
                 } else {
-                    just_exist()
+                    just_exist(None)
                 }
             }
             Decision::Divide(dir) => {
@@ -136,6 +145,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                         Diff {
                             consume: cell.food / 2 + 1 + MOVE_PENALTY / 2,
                             moved: false,
+                            trade: None,
                         },
                         MooreNeighbors::new(|nd| {
                             if nd == dir {
@@ -159,10 +169,16 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                         }),
                     )
                 } else {
-                    just_exist()
+                    just_exist(None)
                 }
             }
-            Decision::Nothing => just_exist(),
+            Decision::Trade(money, food) => {
+                let money = std::cmp::min(money, cell.money as i32);
+                // We cant trade away more than 1 less than the amount of food we have because the food goes down.
+                let food = std::cmp::min(food, cell.money as i32 - 1);
+                just_exist(Some(Trade { money, food }))
+            }
+            Decision::Nothing => just_exist(None),
         }
     }
 
@@ -191,7 +207,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             }
 
             // Handle food movement.
-            cell.food += moves.iter().map(|m| m.food).sum::<usize>();
+            cell.food += moves.iter().map(|m| m.food).sum::<u32>();
 
             // Handle mutation.
             if let Some(ref mut brain) = cell.brain {
@@ -241,19 +257,23 @@ pub enum CellType {
 
 #[derive(Clone, Debug)]
 pub struct Cell {
-    pub food: usize,
+    pub food: u32,
+    pub money: u32,
     pub ty: CellType,
     pub signal: f64,
     pub brain: Option<Brain>,
+    pub trade: Option<Trade>,
 }
 
 impl Default for Cell {
     fn default() -> Self {
         Self {
             food: 0,
+            money: 0,
             ty: CellType::Empty,
             signal: 0.0,
             brain: None,
+            trade: None,
         }
     }
 }
@@ -287,14 +307,15 @@ impl Cell {
 
 #[derive(Clone, Debug)]
 pub struct Move {
-    food: usize,
+    food: u32,
     brain: Option<Brain>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Diff {
-    consume: usize,
+    consume: u32,
     moved: bool,
+    trade: Option<Trade>,
 }
 
 /// The entrypoint for the grid.

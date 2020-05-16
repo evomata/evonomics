@@ -87,7 +87,7 @@ impl Brain {
         match &mut decision {
             Decision::Divide(dir) => *dir = rot(*dir),
             Decision::Move(dir) => *dir = rot(*dir),
-            Decision::Nothing => {}
+            Decision::Nothing | Decision::Trade(..) => {}
         }
         decision
     }
@@ -305,6 +305,25 @@ impl Dna {
                 }
                 Codon::Move(dir) => return Action::Move(dir),
                 Codon::Divide(dir) => return Action::Divide(dir),
+                Codon::Trade => {
+                    let clamp = |n: f64| {
+                        if n > 10_000.0 {
+                            10_000.0
+                        } else if n < -10_000.0 {
+                            -10_000.0
+                        } else if n.is_infinite() {
+                            0.0
+                        } else {
+                            n
+                        }
+                    };
+                    match (stack.pop(), stack.pop()) {
+                        (Some(a), Some(b)) => {
+                            return Action::Trade(clamp(a) as i32, clamp(b) as i32)
+                        }
+                        _ => break,
+                    }
+                }
                 Codon::RotateLeft => return Action::RotateLeft,
                 Codon::RotateRight => return Action::RotateRight,
                 Codon::Nothing => break,
@@ -350,6 +369,7 @@ enum Codon {
     Write(u32),
     Move(MooreDirection),
     Divide(MooreDirection),
+    Trade,
     RotateLeft,
     RotateRight,
     Nothing,
@@ -357,7 +377,7 @@ enum Codon {
 
 impl Distribution<Codon> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Codon {
-        match rng.gen_range(0, 15) {
+        match rng.gen_range(0, 16) {
             0 => Codon::Add,
             1 => Codon::Sub,
             2 => Codon::Mul,
@@ -382,9 +402,10 @@ impl Distribution<Codon> for Standard {
                 3 => MooreDirection::Down,
                 _ => unreachable!(),
             }),
-            12 => Codon::RotateLeft,
-            13 => Codon::RotateRight,
-            14 => Codon::Nothing,
+            12 => Codon::Trade,
+            13 => Codon::RotateLeft,
+            14 => Codon::RotateRight,
+            15 => Codon::Nothing,
             _ => unreachable!(),
         }
     }
@@ -394,6 +415,7 @@ pub enum Action {
     Write(u32, f64),
     Move(MooreDirection),
     Divide(MooreDirection),
+    Trade(i32, i32),
     RotateLeft,
     RotateRight,
     Nothing,
@@ -402,6 +424,7 @@ pub enum Action {
 pub enum Decision {
     Move(MooreDirection),
     Divide(MooreDirection),
+    Trade(i32, i32),
     Nothing,
 }
 
@@ -410,6 +433,7 @@ impl From<Action> for Decision {
         match action {
             Action::Move(dir) => Decision::Move(dir),
             Action::Divide(dir) => Decision::Divide(dir),
+            Action::Trade(a, b) => Decision::Trade(a, b),
             Action::Nothing => Decision::Nothing,
             _ => panic!("you shouldn't try to turn just any action into a decision"),
         }

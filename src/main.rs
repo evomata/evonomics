@@ -110,7 +110,8 @@ impl Clone for Message {
 
 fn reciever_command(rx: Receiver<sim::FromSim>) -> Command<Message> {
     Command::perform(rx.into_future(), |(item, stream)| {
-        Message::FromSim(item.expect("sim_rx ended unexpectedly"), stream)
+        item.map(|item| Message::FromSim(item, stream))
+            .unwrap_or(Message::Null)
     })
 }
 
@@ -259,7 +260,7 @@ impl<'a> Application for EvonomicsWorld {
                 ));
 
                 return Command::batch(vec![
-                    Command::perform(sim_runner, |_| panic!()),
+                    Command::perform(sim_runner, |_| Message::Null),
                     reciever_command(sim_rx),
                 ]);
             }
