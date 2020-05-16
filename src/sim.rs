@@ -19,11 +19,12 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 
 mod brain;
 
-const SPAWN_FOOD: u32 = 16;
-const MOVE_PENALTY: u32 = 0;
-
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 
+// starting food for cell
+const SPAWN_FOOD: u32 = 16;
+const MOVE_PENALTY: u32 = 0;
+// cornacopia bounty
 const SOURCE_FOOD_SPAWN: u32 = 8;
 
 const RESERVE_DIVISOR: u32 = 128;
@@ -32,11 +33,15 @@ const RESERVE_DIVISOR: u32 = 128;
 static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
 
 lazy_static::lazy_static! {
-    static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
-    // static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0).unwrap();
-    static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
     static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+
+    // number of cornacopias
     static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
+    // chance food spawns at a cornacopia
+    static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
+
+    // chance food spawns at each position
+    static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
 }
 
 #[derive(Clone, Debug)]

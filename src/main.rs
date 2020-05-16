@@ -480,6 +480,13 @@ impl<'a> Application for EvonomicsWorld {
                             .width(Length::Fill),
                         )
                         .push(
+                            Text::new(format!("Total Ticks: {}", self.total_tick_count))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(
                             Text::new(format!("Bid: {:?}", self.bid))
                                 .size(16)
                                 .vertical_alignment(VerticalAlignment::Bottom)
@@ -566,7 +573,6 @@ impl<'a> Application for EvonomicsWorld {
                         .on_press(Message::ToggleSim),
                     )
                     .push(fps_controls)
-                    .push(Text::new(format!("Total Ticks: {}", self.total_tick_count)))
                     .push(spawn_controls)
                     .push(
                         Button::new(
