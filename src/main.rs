@@ -58,6 +58,9 @@ struct EvonomicsWorld {
     next_speed: Option<usize>,
     aspect_ratio: AspectRatio,
     total_tick_count: u64,
+    bid: Option<i32>,
+    ask: Option<i32>,
+    reserve: u32,
 }
 
 enum MenuState {
@@ -125,7 +128,7 @@ fn spawn_rate(
     spawn_rate: f32,
 ) -> f64 {
     if is_inverse_rate_type {
-        spawn_rate as f64 / ( (cell_count+1) * height ) as f64
+        spawn_rate as f64 / ((cell_count + 1) * height) as f64
     } else {
         (SPAWN_CURVE.powf(1.0 - spawn_rate as f64) - SPAWN_CURVE) / (1.0 - SPAWN_CURVE)
     }
@@ -178,6 +181,9 @@ impl<'a> Application for EvonomicsWorld {
                 next_speed: None,
                 aspect_ratio: INITIAL_ASPECT,
                 total_tick_count: 0,
+                bid: None,
+                ask: None,
+                reserve: 0,
             },
             Command::none(),
         )
@@ -199,6 +205,11 @@ impl<'a> Application for EvonomicsWorld {
                         }
                         None => {}
                     },
+                    sim::FromSim::Market { ask, bid, reserve } => {
+                        self.ask = ask;
+                        self.bid = bid;
+                        self.reserve = reserve;
+                    }
                 }
                 return reciever_command(stream);
             }
@@ -291,8 +302,10 @@ impl<'a> Application for EvonomicsWorld {
                     Some(ref mut tx) => {
                         // If the channel is full, dont send it.
                         match tx.try_send(sim::ToSim::Tick(self.speed)).ok() {
-                            Some(_) => { self.total_tick_count += self.speed as u64; },
-                            None => {},
+                            Some(_) => {
+                                self.total_tick_count += self.speed as u64;
+                            }
+                            None => {}
                         }
                         self.update(Message::SpawnRateChanged(self.spawn_rate));
                     }
@@ -465,6 +478,27 @@ impl<'a> Application for EvonomicsWorld {
                             .vertical_alignment(VerticalAlignment::Bottom)
                             .horizontal_alignment(HorizontalAlignment::Center)
                             .width(Length::Fill),
+                        )
+                        .push(
+                            Text::new(format!("Bid: {:?}", self.bid))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(
+                            Text::new(format!("Ask: {:?}", self.ask))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(
+                            Text::new(format!("Reserve: {}", self.reserve))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
                         ),
                 )
                 .style(style::Theme::Nested);
@@ -532,7 +566,7 @@ impl<'a> Application for EvonomicsWorld {
                         .on_press(Message::ToggleSim),
                     )
                     .push(fps_controls)
-                    .push( Text::new( format!( "Total Ticks: {}", self.total_tick_count ) ) )
+                    .push(Text::new(format!("Total Ticks: {}", self.total_tick_count)))
                     .push(spawn_controls)
                     .push(
                         Button::new(

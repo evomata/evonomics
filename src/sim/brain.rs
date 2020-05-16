@@ -307,14 +307,16 @@ impl Dna {
                 Codon::Divide(dir) => return Action::Divide(dir),
                 Codon::Trade => {
                     let clamp = |n: f64| {
-                        if n > 10_000.0 {
-                            10_000.0
-                        } else if n < -10_000.0 {
-                            -10_000.0
-                        } else if n.is_infinite() {
-                            0.0
+                        if n.is_finite() {
+                            if n > 10_000.0 {
+                                10_000.0
+                            } else if n < -10_000.0 {
+                                -10_000.0
+                            } else {
+                                n
+                            }
                         } else {
-                            n
+                            0.0
                         }
                     };
                     match (stack.pop(), stack.pop()) {
