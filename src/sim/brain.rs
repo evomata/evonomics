@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 128;
-const INITIAL_GENOME_SCALE: f64 = 128.0;
-const INITIAL_ENTRIES_SCALE: f64 = 8.0;
+const INITIAL_GENOME_SCALE: f64 = 256.0;
+const INITIAL_ENTRIES_SCALE: f64 = 32.0;
 
 lazy_static::lazy_static! {
     static ref HALF_CHANCE: Bernoulli = Bernoulli::new(0.5).unwrap();
