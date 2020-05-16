@@ -8,8 +8,9 @@ use futures::{
 };
 use gridsim::{moore::*, Neighborhood, SquareGrid};
 use iced::Color;
+use min_max_heap::MinMaxHeap;
 use ndarray::Array2;
-use rand::{distributions::Bernoulli, Rng};
+use rand::{distributions::Bernoulli, seq::SliceRandom, Rng};
 use rayon::prelude::*;
 use std::iter::once;
 use tokio::task::block_in_place;
@@ -38,7 +39,7 @@ lazy_static::lazy_static! {
 
 #[derive(Clone, Debug)]
 pub struct Trade {
-    pub money: i32,
+    pub rate: i32,
     pub food: i32,
 }
 
@@ -172,11 +173,14 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                     just_exist(None)
                 }
             }
-            Decision::Trade(money, food) => {
-                let money = std::cmp::min(money, cell.money as i32);
-                // We cant trade away more than 1 less than the amount of food we have because the food goes down.
-                let food = std::cmp::min(food, cell.money as i32 - 1);
-                just_exist(Some(Trade { money, food }))
+            Decision::Trade(rate, food) => {
+                // Only trade if we can actually make the trade.
+                let cost = -rate * food;
+                if food < cell.food as i32 && cost <= cell.money as i32 {
+                    just_exist(Some(Trade { rate, food }))
+                } else {
+                    just_exist(None)
+                }
             }
             Decision::Nothing => just_exist(None),
         }
@@ -336,7 +340,7 @@ pub fn run_sim(
                 ToSim::Tick(times) => {
                     sim = block_in_place(move || sim.tick(times));
                     let view = block_in_place(|| sim.view());
-                    outgoing.send(FromSim::View(view)).await.unwrap();
+                    outgoing.send(FromSim::View(view)).await.ok();
                 }
                 ToSim::SetSpawnChance(new_spawn_chance) => unsafe {
                     CELL_SPAWN_DISTRIBUTION = Some(Bernoulli::new(new_spawn_chance).unwrap());
@@ -411,18 +415,143 @@ impl Sim {
     }
 
     pub fn tick(mut self, times: usize) -> Self {
+        use std::cmp::Ordering;
         self.frames_elapsed = times;
+
+        #[derive(PartialEq, Eq)]
+        struct Order {
+            index: usize,
+            rate: i32,
+            food: i32,
+        }
+
+        #[derive(Debug, PartialEq, Eq)]
+        enum Intent {
+            Bid,
+            Ask,
+            Nothing,
+        }
+
+        impl Order {
+            fn intent(&self) -> Intent {
+                if self.food < 0 {
+                    Intent::Bid
+                } else if self.food > 0 {
+                    Intent::Ask
+                } else {
+                    Intent::Nothing
+                }
+            }
+        }
+
+        impl PartialOrd for Order {
+            fn partial_cmp(&self, other: &Order) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        impl Ord for Order {
+            fn cmp(&self, other: &Order) -> Ordering {
+                self.rate.cmp(&other.rate)
+            }
+        }
+
         for _ in 0..times {
             // Cycle the grid.
             self.grid.cycle();
             // Extract all trades.
-            let trades: Vec<(usize, Trade)> = self
+            let mut orders: Vec<Order> = self
                 .grid
                 .get_cells_mut()
                 .iter_mut()
                 .enumerate()
                 .filter_map(|(ix, cell)| cell.trade.take().map(|trade| (ix, trade)))
+                .map(|(index, Trade { rate, food })| Order { index, rate, food })
                 .collect();
+            // Put the trades into a random order.
+            orders.shuffle(unsafe { rng() });
+
+            let mut bids: MinMaxHeap<Order> = MinMaxHeap::new();
+            let mut asks: MinMaxHeap<Order> = MinMaxHeap::new();
+            let mut fulfill = |new: &mut Order, existing: &mut Order| {
+                let rate = existing.rate;
+                let num = std::cmp::min(new.food.abs(), existing.food.abs());
+                {
+                    let new_cell = &mut self.grid.get_cells_mut()[new.index];
+                    new_cell.money =
+                        (new_cell.money as i32 + rate * num * new.food.signum()) as u32;
+                }
+                {
+                    let existing_cell = &mut self.grid.get_cells_mut()[existing.index];
+                    existing_cell.money =
+                        (existing_cell.money as i32 + rate * num * existing.food.signum()) as u32;
+                }
+            };
+            for mut order in orders {
+                let intent = order.intent();
+
+                match intent {
+                    Intent::Bid => {
+                        // Keep resolving the bid with asks until the order runs out or the asks are too high.
+                        loop {
+                            if let Some(mut ask) = asks.pop_min() {
+                                if ask.rate > order.rate {
+                                    // The best asking price was higher than our bid, so just push the bid to the bids.
+                                    bids.push(order);
+                                    break;
+                                } else {
+                                    // Fulfill as much as possible on both ends.
+                                    fulfill(&mut order, &mut ask);
+
+                                    // If the ask is not complete, we must return it to the asks.
+                                    if ask.food != 0 {
+                                        asks.push(ask);
+                                    }
+
+                                    // If the order is complete, we can break from this loop.
+                                    if order.food == 0 {
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // There were no asks, so push our bid.
+                                bids.push(order);
+                                break;
+                            }
+                        }
+                    }
+                    Intent::Ask => {
+                        // Keep resolving the ask with bids until the order runs out or the bids are too low.
+                        loop {
+                            if let Some(mut bid) = bids.pop_max() {
+                                if bid.rate < order.rate {
+                                    // The best bid price was lower than our ask, so just push the ask to the asks.
+                                    asks.push(order);
+                                    break;
+                                } else {
+                                    // Fulfill as much as possible on both ends.
+                                    fulfill(&mut order, &mut bid);
+
+                                    // If the bid is not complete, we must return it to the bids.
+                                    if bid.food != 0 {
+                                        bids.push(bid);
+                                    }
+
+                                    // If the order is complete, we can break from this loop.
+                                    if order.food == 0 {
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // There were no bids, so push our ask.
+                                asks.push(order);
+                                break;
+                            }
+                        }
+                    }
+                    Intent::Nothing => {}
+                }
+            }
         }
         self
     }
