@@ -20,6 +20,7 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 mod brain;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
+const MONEY_COLOR_MULTIPLIER: f32 = 0.1;
 
 // starting food for cell
 const SPAWN_FOOD: u32 = 16;
@@ -30,6 +31,10 @@ static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
 static mut MUTATE_DISTRIBUTION: Option<Bernoulli> = None;
 static mut CORNACOPIA_FOOD_DISTRIBUTION: Option<Bernoulli> = None;
 static mut NORMAL_FOOD_DISTRIBUTION: Option<Bernoulli> = None;
+
+const RESERVE_MULTIPLIER: u32 = 64;
+
+const REPO: bool = true;
 
 #[derive(Clone, Debug)]
 pub struct Trade {
@@ -58,11 +63,13 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             return (
                 Diff {
                     consume: 0,
+                    spend: 0,
                     moved: true,
                     trade: None,
                 },
                 MooreNeighbors::new(|_| Move {
                     food: 0,
+                    money: 0,
                     brain: None,
                 }),
             );
@@ -72,11 +79,13 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             (
                 Diff {
                     consume: 1,
+                    spend: 0,
                     moved: false,
                     trade,
                 },
                 MooreNeighbors::new(|_| Move {
                     food: 0,
+                    money: 0,
                     brain: None,
                 }),
             )
@@ -85,8 +94,8 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             .brain
             .as_ref()
             .map(|brain| {
-                const NEIGHBOR_INPUTS: usize = 4;
-                const SELF_INPUTS: usize = 1;
+                const NEIGHBOR_INPUTS: usize = 5;
+                const SELF_INPUTS: usize = 2;
                 const INPUTS: usize = NEIGHBOR_INPUTS * 4 + SELF_INPUTS;
                 let boolnum = |n| if n { 1.0 } else { 0.0 };
                 let mut inputs: ArrayVec<[f64; INPUTS]> = neighbors
@@ -96,8 +105,10 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             .chain(once(boolnum(n.ty == CellType::Wall)))
                             .chain(once(n.food as f64))
                             .chain(once(n.signal))
+                            .chain(once(n.money as f64))
                     })
-                    .chain(Some(cell.food as f64))
+                    .chain(once(cell.food as f64))
+                    .chain(once(cell.money as f64))
                     .collect();
                 // This handles rotation of inputs in respect to cell.
                 inputs[0..NEIGHBOR_INPUTS * 4].rotate_left(NEIGHBOR_INPUTS * brain.rotation());
@@ -113,6 +124,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                     (
                         Diff {
                             consume: cell.food,
+                            spend: cell.money,
                             moved: true,
                             trade: None,
                         },
@@ -120,11 +132,13 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             if nd == dir {
                                 Move {
                                     food: cell.food - 1 - MOVE_PENALTY,
+                                    money: cell.money,
                                     brain: cell.brain.clone(),
                                 }
                             } else {
                                 Move {
                                     food: 0,
+                                    money: 0,
                                     brain: None,
                                 }
                             }
@@ -139,6 +153,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                     (
                         Diff {
                             consume: cell.food / 2 + 1 + MOVE_PENALTY / 2,
+                            spend: cell.money / 2,
                             moved: false,
                             trade: None,
                         },
@@ -146,6 +161,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             if nd == dir {
                                 Move {
                                     food: cell.food / 2 - MOVE_PENALTY / 2,
+                                    money: cell.money / 2,
                                     brain: {
                                         if let Some(mut t) = cell.brain.clone() {
                                             t.generation += 1;
@@ -158,6 +174,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             } else {
                                 Move {
                                     food: 0,
+                                    money: 0,
                                     brain: None,
                                 }
                             }
@@ -181,15 +198,22 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
     }
 
     fn update(cell: &mut Cell, diff: Diff, moves: Self::MoveNeighbors) {
+        // Handle money movement (even if wall so that it can be reclaimed by reserve).
+        cell.money += moves.clone().iter().map(|m| m.money).sum::<u32>();
         if cell.ty != CellType::Wall {
             let rng = unsafe { rng() };
             // Handle food reduction from diff.
             cell.food = cell.food.saturating_sub(diff.consume);
+            // Handle money reduction from diff.
+            cell.money = cell.money.saturating_sub(diff.spend);
 
             // Handle taking the brain.
             if diff.moved {
                 cell.brain.take();
             }
+
+            // Create trade.
+            cell.trade = diff.trade;
 
             // Handle brain movement.
             let mut brain_moves = moves.clone().iter().flat_map(|m| m.brain);
@@ -205,7 +229,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             }
 
             // Handle food movement.
-            cell.food += moves.iter().map(|m| m.food).sum::<u32>();
+            cell.food += moves.clone().iter().map(|m| m.food).sum::<u32>();
 
             // Handle mutation.
             if let Some(ref mut brain) = cell.brain {
@@ -291,9 +315,9 @@ impl Default for Cell {
     }
 }
 
-fn cap_color(n: f32) -> f32 {
-    if n > 0.3 {
-        0.3
+fn cap_color(n: f32, cap: f32) -> f32 {
+    if n > cap {
+        cap
     } else {
         n
     }
@@ -307,10 +331,16 @@ impl Cell {
                 if self.brain.is_some() {
                     self.brain.as_ref().unwrap().color()
                 } else {
+                    let food_color = cap_color(FOOD_COLOR_MULTIPLIER * self.food as f32, 0.3);
+                    let money_color = cap_color(MONEY_COLOR_MULTIPLIER * self.money as f32, 1.0);
                     Color::from_rgb(
-                        0.0,
-                        cap_color(FOOD_COLOR_MULTIPLIER * self.food as f32),
-                        0.0,
+                        money_color,
+                        if food_color > money_color {
+                            food_color
+                        } else {
+                            money_color
+                        },
+                        money_color,
                     )
                 }
             }
@@ -321,12 +351,14 @@ impl Cell {
 #[derive(Clone, Debug)]
 pub struct Move {
     food: u32,
+    money: u32,
     brain: Option<Brain>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Diff {
     consume: u32,
+    spend: u32,
     moved: bool,
     trade: Option<Trade>,
 }
@@ -348,7 +380,10 @@ pub fn run_sim(
         while let Some(oncoming) = oncoming.next().await {
             match oncoming {
                 ToSim::Tick(times) => {
-                    sim = block_in_place(move || sim.tick(times));
+                    for _ in 0..times {
+                        sim = block_in_place(move || sim.tick(1));
+                        outgoing.send(sim.market()).await.ok();
+                    }
                     let view = block_in_place(|| sim.view());
                     outgoing.send(FromSim::View(view)).await.ok();
                 }
@@ -391,6 +426,13 @@ pub enum ToSim {
 #[derive(Debug)]
 pub enum FromSim {
     View(View),
+    Market {
+        bid: Option<i32>,
+        ask: Option<i32>,
+        reserve: u32,
+        buy_volume: u32,
+        sell_volume: u32,
+    },
 }
 
 /// Contains the data to display the simulation.
@@ -403,7 +445,12 @@ pub struct View {
 
 pub struct Sim {
     grid: LifeContainer,
+    reserve: u32,
     frames_elapsed: usize,
+    last_bid: Option<i32>,
+    last_ask: Option<i32>,
+    buy_volume: u32,
+    sell_volume: u32,
 }
 
 impl Sim {
@@ -442,7 +489,12 @@ impl Sim {
         }
         Self {
             grid: grid,
+            reserve: width as u32 * height as u32 * RESERVE_MULTIPLIER,
             frames_elapsed: 0,
+            last_bid: None,
+            last_ask: None,
+            buy_volume: 0,
+            sell_volume: 0,
         }
     }
 
@@ -503,21 +555,56 @@ impl Sim {
             // Put the trades into a random order.
             orders.shuffle(unsafe { rng() });
 
+            // Reset buy and sell volume.
+            self.buy_volume = 0;
+            self.sell_volume = 0;
             let mut bids: MinMaxHeap<Order> = MinMaxHeap::new();
             let mut asks: MinMaxHeap<Order> = MinMaxHeap::new();
-            let mut fulfill = |new: &mut Order, existing: &mut Order| {
+            let fulfill = |sim: &mut Self, new: &mut Order, existing: &mut Order| {
                 let rate = existing.rate;
                 let num = std::cmp::min(new.food.abs(), existing.food.abs());
                 {
-                    let new_cell = &mut self.grid.get_cells_mut()[new.index];
+                    let new_cell = &mut sim.grid.get_cells_mut()[new.index];
                     new_cell.money =
                         (new_cell.money as i32 + rate * num * new.food.signum()) as u32;
+                    new_cell.food = (new_cell.food as i32 - num * new.food.signum()) as u32;
+                    new.food -= new.food.signum() * num;
                 }
                 {
-                    let existing_cell = &mut self.grid.get_cells_mut()[existing.index];
+                    let existing_cell = &mut sim.grid.get_cells_mut()[existing.index];
                     existing_cell.money =
                         (existing_cell.money as i32 + rate * num * existing.food.signum()) as u32;
+                    existing_cell.food =
+                        (existing_cell.food as i32 - num * existing.food.signum()) as u32;
+                    existing.food -= existing.food.signum() * num;
                 }
+                sim.buy_volume += num as u32;
+                sim.sell_volume += num as u32;
+            };
+            // Allows an ask order to be fulfilled by the reserve at a rate of one money per food.
+            let fulfill_reserve = |sim: &mut Self, order: &mut Order| {
+                let num = std::cmp::min(order.food, sim.reserve as i32);
+                {
+                    let cell = &mut sim.grid.get_cells_mut()[order.index];
+                    cell.money = (cell.money as i32 + num * order.food.signum()) as u32;
+                    cell.food = (cell.food as i32 - num * order.food.signum()) as u32;
+                    order.food -= order.food.signum() * num;
+                }
+                sim.reserve -= num as u32;
+                sim.sell_volume += num as u32;
+            };
+            // Allows a bid order to buy food from the reserve at one money per food.
+            let food_reserve = |sim: &mut Self, order: &mut Order| {
+                // We will take as much as there is in the order.
+                let num = -order.food;
+                {
+                    let cell = &mut sim.grid.get_cells_mut()[order.index];
+                    cell.money = (cell.money as i32 + num * order.food.signum()) as u32;
+                    cell.food = (cell.food as i32 - num * order.food.signum()) as u32;
+                    order.food -= order.food.signum() * num;
+                }
+                sim.reserve += num as u32;
+                sim.buy_volume += num as u32;
             };
             for mut order in orders {
                 let intent = order.intent();
@@ -529,11 +616,13 @@ impl Sim {
                             if let Some(mut ask) = asks.pop_min() {
                                 if ask.rate > order.rate {
                                     // The best asking price was higher than our bid, so just push the bid to the bids.
-                                    bids.push(order);
+                                    if order.food != 0 {
+                                        bids.push(order);
+                                    }
                                     break;
                                 } else {
                                     // Fulfill as much as possible on both ends.
-                                    fulfill(&mut order, &mut ask);
+                                    fulfill(&mut self, &mut order, &mut ask);
 
                                     // If the ask is not complete, we must return it to the asks.
                                     if ask.food != 0 {
@@ -546,8 +635,16 @@ impl Sim {
                                     }
                                 }
                             } else {
+                                if REPO {
+                                    // Only repo the money if there are no other ask offers out there.
+                                    if order.rate >= 1 {
+                                        food_reserve(&mut self, &mut order);
+                                    }
+                                }
                                 // There were no asks, so push our bid.
-                                bids.push(order);
+                                if order.food != 0 {
+                                    bids.push(order);
+                                }
                                 break;
                             }
                         }
@@ -558,11 +655,22 @@ impl Sim {
                             if let Some(mut bid) = bids.pop_max() {
                                 if bid.rate < order.rate {
                                     // The best bid price was lower than our ask, so just push the ask to the asks.
-                                    asks.push(order);
+                                    // Try to sell to the reserve.
+                                    if order.rate <= 1 {
+                                        fulfill_reserve(&mut self, &mut order);
+                                    }
+                                    // There were no bids, so push our ask.
+                                    if order.food != 0 {
+                                        asks.push(order);
+                                    }
                                     break;
                                 } else {
+                                    // If the reserve provides a better deal, then use the reserve.
+                                    if bid.rate < 1 {
+                                        fulfill_reserve(&mut self, &mut order);
+                                    }
                                     // Fulfill as much as possible on both ends.
-                                    fulfill(&mut order, &mut bid);
+                                    fulfill(&mut self, &mut order, &mut bid);
 
                                     // If the bid is not complete, we must return it to the bids.
                                     if bid.food != 0 {
@@ -575,8 +683,14 @@ impl Sim {
                                     }
                                 }
                             } else {
+                                // Try to sell to the reserve.
+                                if order.rate <= 1 {
+                                    fulfill_reserve(&mut self, &mut order);
+                                }
                                 // There were no bids, so push our ask.
-                                asks.push(order);
+                                if order.food != 0 {
+                                    asks.push(order);
+                                }
                                 break;
                             }
                         }
@@ -584,8 +698,31 @@ impl Sim {
                     Intent::Nothing => {}
                 }
             }
+            self.last_bid = bids.pop_max().map(|order| order.rate);
+            self.last_ask = asks.pop_min().map(|order| order.rate);
+            // Return all the money on walls to the reserve
+            for cell in self.grid.get_cells_mut() {
+                if cell.ty == CellType::Wall {
+                    self.reserve += cell.money;
+                    cell.money = 0;
+                }
+            }
+            assert_eq!(
+                self.grid.get_cells().iter().map(|c| c.money).sum::<u32>() + self.reserve,
+                self.grid.get_width() as u32 * self.grid.get_height() as u32 * RESERVE_MULTIPLIER
+            );
         }
         self
+    }
+
+    pub fn market(&self) -> FromSim {
+        FromSim::Market {
+            ask: self.last_ask,
+            bid: self.last_bid,
+            reserve: self.reserve,
+            buy_volume: self.buy_volume,
+            sell_volume: self.sell_volume,
+        }
     }
 
     pub fn view(&self) -> View {

@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 128;
-const INITIAL_GENOME_SCALE: f64 = 128.0;
-const INITIAL_ENTRIES_SCALE: f64 = 8.0;
+const INITIAL_GENOME_SCALE: f64 = 256.0;
+const INITIAL_ENTRIES_SCALE: f64 = 64.0;
 
 lazy_static::lazy_static! {
     static ref HALF_CHANCE: Bernoulli = Bernoulli::new(0.5).unwrap();
@@ -307,14 +307,16 @@ impl Dna {
                 Codon::Divide(dir) => return Action::Divide(dir),
                 Codon::Trade => {
                     let clamp = |n: f64| {
-                        if n > 10_000.0 {
-                            10_000.0
-                        } else if n < -10_000.0 {
-                            -10_000.0
-                        } else if n.is_infinite() {
-                            0.0
+                        if n.is_finite() {
+                            if n > 10_000.0 {
+                                10_000.0
+                            } else if n < -10_000.0 {
+                                -10_000.0
+                            } else {
+                                n
+                            }
                         } else {
-                            n
+                            0.0
                         }
                     };
                     match (stack.pop(), stack.pop()) {
@@ -324,6 +326,10 @@ impl Dna {
                         _ => break,
                     }
                 }
+                Codon::SimpleBid1 => return Action::Trade(1, -10),
+                Codon::SimpleAsk1 => return Action::Trade(1, 10),
+                Codon::SimpleBid2 => return Action::Trade(2, -10),
+                Codon::SimpleAsk2 => return Action::Trade(2, 10),
                 Codon::RotateLeft => return Action::RotateLeft,
                 Codon::RotateRight => return Action::RotateRight,
                 Codon::Nothing => break,
@@ -370,6 +376,10 @@ enum Codon {
     Move(MooreDirection),
     Divide(MooreDirection),
     Trade,
+    SimpleBid1,
+    SimpleAsk1,
+    SimpleBid2,
+    SimpleAsk2,
     RotateLeft,
     RotateRight,
     Nothing,
@@ -377,7 +387,7 @@ enum Codon {
 
 impl Distribution<Codon> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Codon {
-        match rng.gen_range(0, 16) {
+        match rng.gen_range(0, 20) {
             0 => Codon::Add,
             1 => Codon::Sub,
             2 => Codon::Mul,
@@ -403,9 +413,13 @@ impl Distribution<Codon> for Standard {
                 _ => unreachable!(),
             }),
             12 => Codon::Trade,
-            13 => Codon::RotateLeft,
-            14 => Codon::RotateRight,
-            15 => Codon::Nothing,
+            13 => Codon::SimpleBid1,
+            14 => Codon::SimpleAsk1,
+            15 => Codon::SimpleBid2,
+            16 => Codon::SimpleAsk2,
+            17 => Codon::RotateLeft,
+            18 => Codon::RotateRight,
+            19 => Codon::Nothing,
             _ => unreachable!(),
         }
     }

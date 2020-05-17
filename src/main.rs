@@ -1,5 +1,6 @@
 mod grid;
 pub mod gridgen;
+mod plot;
 pub mod sim;
 mod style;
 
@@ -8,12 +9,14 @@ use futures::{
     prelude::*,
 };
 use iced::{
-    button, executor, slider, time, Align, Application, Button, Column, Command, Container,
+    button, executor, image, slider, time, Align, Application, Button, Column, Command, Container,
     Element, HorizontalAlignment, Length, Radio, Row, Settings, Slider, Subscription, Text,
     VerticalAlignment,
 };
 use rand::SeedableRng;
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
+
+const MAX_GRAPH_TIMES: usize = 300;
 
 std::thread_local! {
     pub static RNG: rand_chacha::ChaCha8Rng = rand_chacha::ChaCha8Rng::from_entropy();
@@ -71,6 +74,14 @@ struct EvonomicsWorld {
     next_speed: Option<usize>,
     aspect_ratio: AspectRatio,
     total_tick_count: u64,
+    bids: VecDeque<i32>,
+    asks: VecDeque<i32>,
+    reserves: VecDeque<u32>,
+    buy_volumes: VecDeque<u32>,
+    sell_volumes: VecDeque<u32>,
+    bid_ask_graph: image::Handle,
+    reserve_graph: image::Handle,
+    volume_graph: image::Handle,
 }
 
 enum MenuState {
@@ -190,7 +201,7 @@ impl<'a> Application for EvonomicsWorld {
                 dimension_slider: Default::default(),
                 width: INITIAL_WIDTH,
                 grid_openness_slider: Default::default(),
-                openness: 1,
+                openness: 5,
 
                 cornacopia_probability_slider: Default::default(),
                 cornacopia_probability: 0.1,
@@ -209,6 +220,14 @@ impl<'a> Application for EvonomicsWorld {
                 next_speed: None,
                 aspect_ratio: INITIAL_ASPECT,
                 total_tick_count: 0,
+                bids: VecDeque::new(),
+                asks: VecDeque::new(),
+                reserves: VecDeque::new(),
+                buy_volumes: VecDeque::new(),
+                sell_volumes: VecDeque::new(),
+                bid_ask_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
+                reserve_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
+                volume_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
             },
             Command::none(),
         )
@@ -230,6 +249,38 @@ impl<'a> Application for EvonomicsWorld {
                         }
                         None => {}
                     },
+                    sim::FromSim::Market {
+                        ask,
+                        bid,
+                        reserve,
+                        buy_volume,
+                        sell_volume,
+                    } => {
+                        self.bids.push_back(bid.unwrap_or(0));
+                        self.asks.push_back(ask.unwrap_or(0));
+                        self.reserves.push_back(reserve);
+                        self.buy_volumes.push_back(buy_volume);
+                        self.sell_volumes.push_back(sell_volume);
+                        if self.bids.len() > MAX_GRAPH_TIMES {
+                            self.bids.pop_front();
+                            self.asks.pop_front();
+                            self.reserves.pop_front();
+                            self.buy_volumes.pop_front();
+                            self.sell_volumes.pop_front();
+                        }
+                        // Update the bid/ask graph.
+                        let bids: Vec<i32> = self.bids.clone().into();
+                        let asks: Vec<i32> = self.asks.clone().into();
+                        let reserves: Vec<u32> = self.reserves.clone().into();
+                        let buy_volumes: Vec<u32> = self.buy_volumes.clone().into();
+                        let sell_volumes: Vec<u32> = self.sell_volumes.clone().into();
+                        self.bid_ask_graph = plot::graph_bids_asks(&bids, &asks)
+                            .expect("failed to create bid/ask graph");
+                        self.reserve_graph = plot::graph_reserves(&reserves)
+                            .expect("failed to create reserves graph");
+                        self.volume_graph = plot::graph_volumes(&buy_volumes, &sell_volumes)
+                            .expect("failed to create volume graph");
+                    }
                 }
                 return reciever_command(stream);
             }
@@ -704,6 +755,48 @@ impl<'a> Application for EvonomicsWorld {
                 )
                 .style(style::Theme::Nested);
 
+                let bid_ask_ui = Container::new(
+                    Column::new()
+                        .padding(2)
+                        .push(
+                            Text::new("Bid/Ask")
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(image::Image::new(self.bid_ask_graph.clone())),
+                )
+                .style(style::Theme::Nested)
+                .height(Length::Shrink)
+                .width(Length::Fill);
+
+                let reserve_ui = Container::new(
+                    Column::new()
+                        .padding(2)
+                        .push(
+                            Text::new("Reserve")
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(image::Image::new(self.reserve_graph.clone())),
+                )
+                .style(style::Theme::Nested)
+                .height(Length::Shrink)
+                .width(Length::Fill);
+
+                let volume_ui = Container::new(
+                    Column::new()
+                        .padding(2)
+                        .push(
+                            Text::new("Volume (buy/sell)")
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(image::Image::new(self.volume_graph.clone())),
+                )
+                .style(style::Theme::Nested)
+                .height(Length::Shrink)
+                .width(Length::Fill);
+
                 let grid_controls = Column::new()
                     .spacing(style::SPACING)
                     .padding(style::PADDING)
@@ -749,7 +842,10 @@ impl<'a> Application for EvonomicsWorld {
                         .style(style::Theme::Default)
                         .min_width(style::BUTTON_SIZE)
                         .on_press(Message::ToggleGrid),
-                    );
+                    )
+                    .push(bid_ask_ui)
+                    .push(reserve_ui)
+                    .push(volume_ui);
 
                 Container::new(
                     Row::new().push(

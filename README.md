@@ -1,5 +1,8 @@
 # evonomics
 
+![1](https://evomata.github.io/evonomics/1.png)
+![0](https://evomata.github.io/evonomics/0.png)
+
 ## Profiling
 
 Do this so that you can profile with perf:
