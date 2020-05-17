@@ -373,17 +373,12 @@ pub fn run_sim(
         while let Some(oncoming) = oncoming.next().await {
             match oncoming {
                 ToSim::Tick(times) => {
-                    sim = block_in_place(move || sim.tick(times));
+                    for _ in 0..times {
+                        sim = block_in_place(move || sim.tick(1));
+                        outgoing.send(sim.market()).await.ok();
+                    }
                     let view = block_in_place(|| sim.view());
                     outgoing.send(FromSim::View(view)).await.ok();
-                    outgoing
-                        .send(FromSim::Market {
-                            ask: sim.last_ask,
-                            bid: sim.last_bid,
-                            reserve: sim.reserve,
-                        })
-                        .await
-                        .ok();
                 }
                 ToSim::SetSpawnChance(new_spawn_chance) => unsafe {
                     CELL_SPAWN_DISTRIBUTION = Some(Bernoulli::new(new_spawn_chance).unwrap());
@@ -412,6 +407,8 @@ pub enum FromSim {
         bid: Option<i32>,
         ask: Option<i32>,
         reserve: u32,
+        buy_volume: u32,
+        sell_volume: u32,
     },
 }
 
@@ -429,6 +426,8 @@ pub struct Sim {
     frames_elapsed: usize,
     last_bid: Option<i32>,
     last_ask: Option<i32>,
+    buy_volume: u32,
+    sell_volume: u32,
 }
 
 impl Sim {
@@ -465,6 +464,8 @@ impl Sim {
             frames_elapsed: 0,
             last_bid: None,
             last_ask: None,
+            buy_volume: 0,
+            sell_volume: 0,
         }
     }
 
@@ -525,26 +526,31 @@ impl Sim {
             // Put the trades into a random order.
             orders.shuffle(unsafe { rng() });
 
+            // Reset buy and sell volume.
+            self.buy_volume = 0;
+            self.sell_volume = 0;
             let mut bids: MinMaxHeap<Order> = MinMaxHeap::new();
             let mut asks: MinMaxHeap<Order> = MinMaxHeap::new();
-            let fulfill = |cells: &mut [Cell], new: &mut Order, existing: &mut Order| {
+            let fulfill = |sim: &mut Self, new: &mut Order, existing: &mut Order| {
                 let rate = existing.rate;
                 let num = std::cmp::min(new.food.abs(), existing.food.abs());
                 {
-                    let new_cell = &mut cells[new.index];
+                    let new_cell = &mut sim.grid.get_cells_mut()[new.index];
                     new_cell.money =
                         (new_cell.money as i32 + rate * num * new.food.signum()) as u32;
                     new_cell.food = (new_cell.food as i32 - num * new.food.signum()) as u32;
                     new.food -= new.food.signum() * num;
                 }
                 {
-                    let existing_cell = &mut cells[existing.index];
+                    let existing_cell = &mut sim.grid.get_cells_mut()[existing.index];
                     existing_cell.money =
                         (existing_cell.money as i32 + rate * num * existing.food.signum()) as u32;
                     existing_cell.food =
                         (existing_cell.food as i32 - num * existing.food.signum()) as u32;
                     existing.food -= existing.food.signum() * num;
                 }
+                sim.buy_volume += num as u32;
+                sim.sell_volume += num as u32;
             };
             // Allows an ask order to be fulfilled by the reserve at a rate of one money per food.
             let fulfill_reserve = |sim: &mut Self, order: &mut Order| {
@@ -556,6 +562,7 @@ impl Sim {
                     order.food -= order.food.signum() * num;
                 }
                 sim.reserve -= num as u32;
+                sim.sell_volume += num as u32;
             };
             // Allows a bid order to buy food from the reserve at one money per food.
             let food_reserve = |sim: &mut Self, order: &mut Order| {
@@ -568,6 +575,7 @@ impl Sim {
                     order.food -= order.food.signum() * num;
                 }
                 sim.reserve += num as u32;
+                sim.buy_volume += num as u32;
             };
             for mut order in orders {
                 let intent = order.intent();
@@ -585,7 +593,7 @@ impl Sim {
                                     break;
                                 } else {
                                     // Fulfill as much as possible on both ends.
-                                    fulfill(self.grid.get_cells_mut(), &mut order, &mut ask);
+                                    fulfill(&mut self, &mut order, &mut ask);
 
                                     // If the ask is not complete, we must return it to the asks.
                                     if ask.food != 0 {
@@ -633,7 +641,7 @@ impl Sim {
                                         fulfill_reserve(&mut self, &mut order);
                                     }
                                     // Fulfill as much as possible on both ends.
-                                    fulfill(self.grid.get_cells_mut(), &mut order, &mut bid);
+                                    fulfill(&mut self, &mut order, &mut bid);
 
                                     // If the bid is not complete, we must return it to the bids.
                                     if bid.food != 0 {
@@ -676,6 +684,16 @@ impl Sim {
             );
         }
         self
+    }
+
+    pub fn market(&self) -> FromSim {
+        FromSim::Market {
+            ask: self.last_ask,
+            bid: self.last_bid,
+            reserve: self.reserve,
+            buy_volume: self.buy_volume,
+            sell_volume: self.sell_volume,
+        }
     }
 
     pub fn view(&self) -> View {

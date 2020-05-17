@@ -43,7 +43,7 @@ pub fn graph_bids_asks(
     Ok(image::Handle::from_pixels(WIDTH, HEIGHT, buffer))
 }
 
-pub fn graph_reserve(reserves: &[u32]) -> Result<image::Handle, Box<dyn std::error::Error>> {
+pub fn graph_reserves(reserves: &[u32]) -> Result<image::Handle, Box<dyn std::error::Error>> {
     if reserves.is_empty() {
         return Ok(image::Handle::from_pixels(0, 0, vec![]));
     }
@@ -73,6 +73,63 @@ pub fn graph_reserve(reserves: &[u32]) -> Result<image::Handle, Box<dyn std::err
     chart.draw_series(LineSeries::new(
         reserves.iter().copied().enumerate(),
         &GREEN,
+    ))?;
+
+    drop(chart);
+    drop(root);
+
+    Ok(image::Handle::from_pixels(WIDTH, HEIGHT, buffer))
+}
+
+pub fn graph_volumes(
+    buy_volumes: &[u32],
+    sell_volumes: &[u32],
+) -> Result<image::Handle, Box<dyn std::error::Error>> {
+    assert_eq!(buy_volumes.len(), sell_volumes.len());
+    if buy_volumes.is_empty() {
+        return Ok(image::Handle::from_pixels(0, 0, vec![]));
+    }
+    let min = buy_volumes
+        .iter()
+        .chain(sell_volumes)
+        .copied()
+        .min()
+        .unwrap();
+    let max = buy_volumes
+        .iter()
+        .chain(sell_volumes)
+        .copied()
+        .max()
+        .unwrap();
+
+    const WIDTH: u32 = 200;
+    const HEIGHT: u32 = 150;
+    let mut buffer = vec![0; WIDTH as usize * HEIGHT as usize * 4];
+    let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(&mut buffer, (WIDTH, HEIGHT))?
+        .into_drawing_area();
+
+    root.fill(&WHITE)?;
+
+    let mut chart = ChartBuilder::on(&root)
+        .set_label_area_size(LabelAreaPosition::Top, 5)
+        .set_label_area_size(LabelAreaPosition::Left, 40)
+        .set_label_area_size(LabelAreaPosition::Bottom, 5)
+        .build_ranged(0..buy_volumes.len(), min..max)?
+        .set_secondary_coord(0..buy_volumes.len(), min..max);
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .disable_y_mesh()
+        .draw()?;
+
+    chart.draw_series(LineSeries::new(
+        buy_volumes.iter().copied().enumerate(),
+        &BLUE,
+    ))?;
+    chart.draw_secondary_series(LineSeries::new(
+        sell_volumes.iter().copied().enumerate(),
+        &RED,
     ))?;
 
     drop(chart);
