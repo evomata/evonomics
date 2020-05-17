@@ -326,8 +326,10 @@ impl Dna {
                         _ => break,
                     }
                 }
-                Codon::SimpleBid => return Action::Trade(1, -1),
-                Codon::SimpleAsk => return Action::Trade(1, 1),
+                Codon::SimpleBid1 => return Action::Trade(1, -10),
+                Codon::SimpleAsk1 => return Action::Trade(1, 10),
+                Codon::SimpleBid2 => return Action::Trade(2, -10),
+                Codon::SimpleAsk2 => return Action::Trade(2, 10),
                 Codon::RotateLeft => return Action::RotateLeft,
                 Codon::RotateRight => return Action::RotateRight,
                 Codon::Nothing => break,
@@ -374,8 +376,10 @@ enum Codon {
     Move(MooreDirection),
     Divide(MooreDirection),
     Trade,
-    SimpleBid,
-    SimpleAsk,
+    SimpleBid1,
+    SimpleAsk1,
+    SimpleBid2,
+    SimpleAsk2,
     RotateLeft,
     RotateRight,
     Nothing,
@@ -383,7 +387,7 @@ enum Codon {
 
 impl Distribution<Codon> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Codon {
-        match rng.gen_range(0, 18) {
+        match rng.gen_range(0, 20) {
             0 => Codon::Add,
             1 => Codon::Sub,
             2 => Codon::Mul,
@@ -409,11 +413,13 @@ impl Distribution<Codon> for Standard {
                 _ => unreachable!(),
             }),
             12 => Codon::Trade,
-            13 => Codon::SimpleBid,
-            14 => Codon::SimpleAsk,
-            15 => Codon::RotateLeft,
-            16 => Codon::RotateRight,
-            17 => Codon::Nothing,
+            13 => Codon::SimpleBid1,
+            14 => Codon::SimpleAsk1,
+            15 => Codon::SimpleBid2,
+            16 => Codon::SimpleAsk2,
+            17 => Codon::RotateLeft,
+            18 => Codon::RotateRight,
+            19 => Codon::Nothing,
             _ => unreachable!(),
         }
     }
