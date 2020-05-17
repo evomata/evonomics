@@ -28,7 +28,7 @@ const MOVE_PENALTY: u32 = 0;
 // cornacopia bounty
 const SOURCE_FOOD_SPAWN: u32 = 8;
 
-const RESERVE_DIVISOR: u32 = 128;
+const RESERVE_MULTIPLIER: u32 = 1;
 
 const REPO: bool = true;
 
@@ -460,7 +460,7 @@ impl Sim {
         }
         Self {
             grid: grid,
-            reserve: width as u32 * height as u32 / RESERVE_DIVISOR,
+            reserve: width as u32 * height as u32 * RESERVE_MULTIPLIER,
             frames_elapsed: 0,
             last_bid: None,
             last_ask: None,
@@ -680,7 +680,7 @@ impl Sim {
             }
             assert_eq!(
                 self.grid.get_cells().iter().map(|c| c.money).sum::<u32>() + self.reserve,
-                self.grid.get_width() as u32 * self.grid.get_height() as u32 / RESERVE_DIVISOR
+                self.grid.get_width() as u32 * self.grid.get_height() as u32 * RESERVE_MULTIPLIER
             );
         }
         self
