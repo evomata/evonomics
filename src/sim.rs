@@ -20,7 +20,7 @@ type LifeContainer = SquareGrid<'static, Evonomics>;
 mod brain;
 
 const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
-const MONEY_COLOR_MULTIPLIER: f32 = 0.3;
+const MONEY_COLOR_MULTIPLIER: f32 = 0.1;
 
 // starting food for cell
 const SPAWN_FOOD: u32 = 16;
