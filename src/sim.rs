@@ -28,7 +28,7 @@ const MOVE_PENALTY: u32 = 0;
 // cornacopia bounty
 const SOURCE_FOOD_SPAWN: u32 = 8;
 
-const RESERVE_MULTIPLIER: u32 = 1;
+const RESERVE_MULTIPLIER: u32 = 64;
 
 const REPO: bool = true;
 
@@ -105,7 +105,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             .brain
             .as_ref()
             .map(|brain| {
-                const NEIGHBOR_INPUTS: usize = 4;
+                const NEIGHBOR_INPUTS: usize = 5;
                 const SELF_INPUTS: usize = 1;
                 const INPUTS: usize = NEIGHBOR_INPUTS * 4 + SELF_INPUTS;
                 let boolnum = |n| if n { 1.0 } else { 0.0 };
@@ -116,8 +116,10 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             .chain(once(boolnum(n.ty == CellType::Wall)))
                             .chain(once(n.food as f64))
                             .chain(once(n.signal))
+                            .chain(once(n.money as f64))
                     })
-                    .chain(Some(cell.food as f64))
+                    .chain(once(cell.food as f64))
+                    .chain(once(cell.money as f64))
                     .collect();
                 // This handles rotation of inputs in respect to cell.
                 inputs[0..NEIGHBOR_INPUTS * 4].rotate_left(NEIGHBOR_INPUTS * brain.rotation());
