@@ -14,7 +14,7 @@ use std::sync::Arc;
 const NUM_STATE: usize = 4;
 const MAX_EXECUTE: usize = 128;
 const INITIAL_GENOME_SCALE: f64 = 256.0;
-const INITIAL_ENTRIES_SCALE: f64 = 64.0;
+const INITIAL_ENTRIES_SCALE: f64 = 8.0;
 
 lazy_static::lazy_static! {
     static ref HALF_CHANCE: Bernoulli = Bernoulli::new(0.5).unwrap();
@@ -277,11 +277,35 @@ impl Dna {
                     }
                 }
                 Codon::Literal(n) => stack.push(n),
-                Codon::Less => {
+                Codon::LessAnd => {
                     if let Some(o) = stack.pop().and_then(|b| stack.pop().map(|a| a < b)) {
-                        // Skip the next instruction if its false. It is only executed if true.
+                        // Skip the next non-condition instruction if false. It may be executed if true. Will not if false.
                         if !o {
+                            // We need to skip instructions until we get to a non-condition or reach this instruction.
+                            let start = at;
                             at = (at + 1) % self.sequence.len();
+                            while self.sequence[at].is_condition() && at != start {
+                                at = (at + 1) % self.sequence.len();
+                            }
+                            // Skip past the last instruction.
+                            at = (at + 1) % self.sequence.len();
+                            continue;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                Codon::LessOr => {
+                    if let Some(o) = stack.pop().and_then(|b| stack.pop().map(|a| a < b)) {
+                        // Skip to the next non-condition instruction if true. It may not be executed if false. Will be if true.
+                        if o {
+                            // We need to skip instructions until we get to a non-condition or reach this instruction.
+                            let start = at;
+                            at = (at + 1) % self.sequence.len();
+                            while self.sequence[at].is_condition() && at != start {
+                                at = (at + 1) % self.sequence.len();
+                            }
+                            continue;
                         }
                     } else {
                         break;
@@ -364,7 +388,8 @@ enum Codon {
     Mul,
     Div,
     Literal(f64),
-    Less,
+    LessAnd,
+    LessOr,
     Copy(u32),
     Read(u32),
     Input(u32),
@@ -377,36 +402,47 @@ enum Codon {
     RotateRight,
 }
 
+impl Codon {
+    fn is_condition(&self) -> bool {
+        match self {
+            Codon::LessAnd => true,
+            Codon::LessOr => true,
+            _ => false,
+        }
+    }
+}
+
 impl Distribution<Codon> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Codon {
-        match rng.gen_range(0, 18) {
+        match rng.gen_range(0, 19) {
             0 => Codon::Add,
             1 => Codon::Sub,
             2 => Codon::Mul,
             3 => Codon::Div,
             4 => Codon::Literal(rng.gen::<f64>() * 4.0 - 2.0),
-            5 => Codon::Less,
-            6 => Codon::Copy(rng.gen()),
-            7 => Codon::Read(rng.gen::<u32>() % NUM_STATE as u32),
-            8 => Codon::Input(rng.gen()),
-            9 => Codon::Write(rng.gen::<u32>() % NUM_STATE as u32),
-            10 => Codon::Move(match rng.gen_range(0, 4) {
+            5 => Codon::LessAnd,
+            6 => Codon::LessOr,
+            7 => Codon::Copy(rng.gen()),
+            8 => Codon::Read(rng.gen::<u32>() % NUM_STATE as u32),
+            9 => Codon::Input(rng.gen()),
+            10 => Codon::Write(rng.gen::<u32>() % NUM_STATE as u32),
+            11 => Codon::Move(match rng.gen_range(0, 4) {
                 0 => MooreDirection::Right,
                 1 => MooreDirection::Up,
                 2 => MooreDirection::Left,
                 3 => MooreDirection::Down,
                 _ => unreachable!(),
             }),
-            11 => Codon::Divide(match rng.gen_range(0, 4) {
+            12 => Codon::Divide(match rng.gen_range(0, 4) {
                 0 => MooreDirection::Right,
                 1 => MooreDirection::Up,
                 2 => MooreDirection::Left,
                 3 => MooreDirection::Down,
                 _ => unreachable!(),
             }),
-            12 => Codon::Trade,
-            13 => Codon::RotateLeft,
-            14 => Codon::RotateRight,
+            13 => Codon::Trade,
+            14 => Codon::RotateLeft,
+            15 => Codon::RotateRight,
             _ => Codon::SimpleTrade(rng.gen_range(1, 50), rng.gen_range(-10, 10)),
         }
     }
