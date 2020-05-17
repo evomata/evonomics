@@ -106,7 +106,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
             .as_ref()
             .map(|brain| {
                 const NEIGHBOR_INPUTS: usize = 5;
-                const SELF_INPUTS: usize = 1;
+                const SELF_INPUTS: usize = 2;
                 const INPUTS: usize = NEIGHBOR_INPUTS * 4 + SELF_INPUTS;
                 let boolnum = |n| if n { 1.0 } else { 0.0 };
                 let mut inputs: ArrayVec<[f64; INPUTS]> = neighbors
