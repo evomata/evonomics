@@ -326,10 +326,16 @@ impl Dna {
                         _ => break,
                     }
                 }
-                Codon::SimpleBid1 => return Action::Trade(1, -10),
-                Codon::SimpleAsk1 => return Action::Trade(1, 10),
-                Codon::SimpleBid2 => return Action::Trade(2, -10),
-                Codon::SimpleAsk2 => return Action::Trade(2, 10),
+                Codon::SimpleBid1 => return Action::Trade(1, -5),
+                Codon::SimpleAsk1 => return Action::Trade(1, 5),
+                Codon::SimpleBid2 => return Action::Trade(2, -5),
+                Codon::SimpleAsk2 => return Action::Trade(2, 5),
+                Codon::SimpleBid3 => return Action::Trade(3, -5),
+                Codon::SimpleAsk3 => return Action::Trade(3, 5),
+                Codon::SimpleBid4 => return Action::Trade(4, -5),
+                Codon::SimpleAsk4 => return Action::Trade(4, 5),
+                Codon::SimpleBid5 => return Action::Trade(5, -5),
+                Codon::SimpleAsk5 => return Action::Trade(5, 5),
                 Codon::RotateLeft => return Action::RotateLeft,
                 Codon::RotateRight => return Action::RotateRight,
                 Codon::Nothing => break,
@@ -380,6 +386,12 @@ enum Codon {
     SimpleAsk1,
     SimpleBid2,
     SimpleAsk2,
+    SimpleBid3,
+    SimpleAsk3,
+    SimpleBid4,
+    SimpleAsk4,
+    SimpleBid5,
+    SimpleAsk5,
     RotateLeft,
     RotateRight,
     Nothing,
@@ -387,7 +399,7 @@ enum Codon {
 
 impl Distribution<Codon> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Codon {
-        match rng.gen_range(0, 20) {
+        match rng.gen_range(0, 26) {
             0 => Codon::Add,
             1 => Codon::Sub,
             2 => Codon::Mul,
@@ -417,9 +429,15 @@ impl Distribution<Codon> for Standard {
             14 => Codon::SimpleAsk1,
             15 => Codon::SimpleBid2,
             16 => Codon::SimpleAsk2,
-            17 => Codon::RotateLeft,
-            18 => Codon::RotateRight,
-            19 => Codon::Nothing,
+            17 => Codon::SimpleBid3,
+            18 => Codon::SimpleAsk3,
+            19 => Codon::SimpleBid4,
+            20 => Codon::SimpleAsk4,
+            21 => Codon::SimpleBid5,
+            22 => Codon::SimpleAsk5,
+            23 => Codon::RotateLeft,
+            24 => Codon::RotateRight,
+            25 => Codon::Nothing,
             _ => unreachable!(),
         }
     }
