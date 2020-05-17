@@ -44,7 +44,7 @@ lazy_static::lazy_static! {
     static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
 
     // chance food spawns at each position
-    static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
+    static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.0).unwrap();
 }
 
 #[derive(Clone, Debug)]
