@@ -34,7 +34,7 @@ static mut NORMAL_FOOD_DISTRIBUTION: Option<Bernoulli> = None;
 
 const RESERVE_MULTIPLIER: u32 = 64;
 
-const REPO: bool = true;
+const REPO: bool = false;
 
 #[derive(Clone, Debug)]
 pub struct Trade {
