@@ -9,9 +9,9 @@ use futures::{
     prelude::*,
 };
 use iced::{
-    button, executor, image, slider, time, Align, Application, Button, Column, Command, Container,
-    Element, HorizontalAlignment, Length, Radio, Row, Settings, Slider, Subscription, Text,
-    VerticalAlignment,
+    button, executor, image, scrollable, slider, time, Align, Application, Button, Column, Command,
+    Container, Element, HorizontalAlignment, Length, Radio, Row, Scrollable, Settings, Slider,
+    Subscription, Text, VerticalAlignment,
 };
 use rand::SeedableRng;
 use std::{collections::VecDeque, time::Duration};
@@ -56,7 +56,6 @@ struct EvonomicsWorld {
     width: usize,
     grid_openness_slider: slider::State,
     openness: usize,
-
     cornacopia_probability_slider: slider::State,
     cornacopia_probability: f64,
     cornacopia_bounty_slider: slider::State,
@@ -65,10 +64,8 @@ struct EvonomicsWorld {
     cell_food_probability: f64,
     mutation_probability_slider: slider::State,
     mutation_chance: f64,
-
     cornacopia_count_probability_slider: slider::State,
     cornacopia_count_probability: f64,
-
     menu_state: MenuState,
     is_running_sim: bool,
     next_speed: Option<usize>,
@@ -82,6 +79,7 @@ struct EvonomicsWorld {
     bid_ask_graph: image::Handle,
     reserve_graph: image::Handle,
     volume_graph: image::Handle,
+    scroll: scrollable::State,
 }
 
 enum MenuState {
@@ -202,7 +200,6 @@ impl<'a> Application for EvonomicsWorld {
                 width: INITIAL_WIDTH,
                 grid_openness_slider: Default::default(),
                 openness: 5,
-
                 cornacopia_probability_slider: Default::default(),
                 cornacopia_probability: 0.1,
                 cornacopia_bounty_slider: Default::default(),
@@ -211,10 +208,8 @@ impl<'a> Application for EvonomicsWorld {
                 cell_food_probability: 0.1,
                 mutation_probability_slider: Default::default(),
                 mutation_chance: 0.05,
-
                 cornacopia_count_probability_slider: Default::default(),
                 cornacopia_count_probability: 0.005,
-
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
                 next_speed: None,
@@ -228,6 +223,7 @@ impl<'a> Application for EvonomicsWorld {
                 bid_ask_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
                 reserve_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
                 volume_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
+                scroll: scrollable::State::new(),
             },
             Command::none(),
         )
@@ -847,10 +843,12 @@ impl<'a> Application for EvonomicsWorld {
                     .push(reserve_ui)
                     .push(volume_ui);
 
+                let scrollable = Scrollable::new(&mut self.scroll).push(grid_controls);
+
                 Container::new(
                     Row::new().push(
                         Row::new()
-                            .push(grid_controls)
+                            .push(scrollable)
                             // TODO, .push( Text::new("Click a cell to see its genome or save it.\n\nClick an empty spot to plant a cell from the save files.\n\nUse the wheel to zoom | right click to pan.") ) )
                             //        requires tracking number of marked ancestors in EvonomicsWorld: .push( table with rows of cell ancestors, collumns of color, hide/show radio button, delete button )
                             .push(match self.grid {
