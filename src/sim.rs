@@ -24,23 +24,12 @@ const FOOD_COLOR_MULTIPLIER: f32 = 0.05;
 // starting food for cell
 const SPAWN_FOOD: u32 = 16;
 const MOVE_PENALTY: u32 = 0;
-// cornacopia bounty
-const SOURCE_FOOD_SPAWN: u32 = 8;
 
-// FIXME
+static mut CORNACOPIA_FOOD_SPAWN: u32 = 8;
 static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
-
-lazy_static::lazy_static! {
-    static ref MUTATE_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
-
-    // number of cornacopias
-    static ref SOURCE_SPAWN_DISTRIBUTION: Bernoulli = Bernoulli::new(0.001).unwrap();
-    // chance food spawns at a cornacopia
-    static ref SOURCE_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(1.0).unwrap();
-
-    // chance food spawns at each position
-    static ref NORMAL_FOOD_DISTRIBUTION: Bernoulli = Bernoulli::new(0.01).unwrap();
-}
+static mut MUTATE_DISTRIBUTION: Option<Bernoulli> = None;
+static mut CORNACOPIA_FOOD_DISTRIBUTION: Option<Bernoulli> = None;
+static mut NORMAL_FOOD_DISTRIBUTION: Option<Bernoulli> = None;
 
 #[derive(Clone, Debug)]
 pub struct Trade {
@@ -220,7 +209,12 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
 
             // Handle mutation.
             if let Some(ref mut brain) = cell.brain {
-                if rng.sample(*MUTATE_DISTRIBUTION) {
+                if rng.sample(unsafe {
+                    match MUTATE_DISTRIBUTION {
+                        Some(v) => v,
+                        None => Bernoulli::new(0.0001).unwrap(),
+                    }
+                }) {
                     brain.mutate(&mut *rng);
                 }
             }
@@ -238,11 +232,21 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                 cell.food += SPAWN_FOOD;
             }
             if cell.ty == CellType::Source {
-                if rng.sample(*SOURCE_FOOD_DISTRIBUTION) {
-                    cell.food += SOURCE_FOOD_SPAWN;
+                if rng.sample(unsafe {
+                    match CORNACOPIA_FOOD_DISTRIBUTION {
+                        Some(val) => val,
+                        None => Bernoulli::new(0.0).unwrap(),
+                    }
+                }) {
+                    cell.food += unsafe { CORNACOPIA_FOOD_SPAWN };
                 }
             } else {
-                if rng.sample(*NORMAL_FOOD_DISTRIBUTION) {
+                if rng.sample(unsafe {
+                    match NORMAL_FOOD_DISTRIBUTION {
+                        Some(val) => val,
+                        None => Bernoulli::new(0.01).unwrap(),
+                    }
+                }) {
                     cell.food += 1;
                 }
             }
@@ -334,11 +338,12 @@ pub fn run_sim(
     width: usize,
     height: usize,
     openness: usize,
+    cornacopia_count_probability: f64,
 ) -> (Sender<ToSim>, Receiver<FromSim>, impl Future<Output = ()>) {
     let (oncoming_tx, mut oncoming) = mpsc::channel(inbound);
     let (mut outgoing, outgoing_rx) = mpsc::channel(outbound);
 
-    let mut sim = Sim::new(width, height, openness);
+    let mut sim = Sim::new(width, height, openness, cornacopia_count_probability);
     let task = async move {
         while let Some(oncoming) = oncoming.next().await {
             match oncoming {
@@ -349,6 +354,18 @@ pub fn run_sim(
                 }
                 ToSim::SetSpawnChance(new_spawn_chance) => unsafe {
                     CELL_SPAWN_DISTRIBUTION = Some(Bernoulli::new(new_spawn_chance).unwrap());
+                },
+                ToSim::SetCornacopiaChance(val) => unsafe {
+                    CORNACOPIA_FOOD_DISTRIBUTION = Some(Bernoulli::new(val).unwrap());
+                },
+                ToSim::SetCornacopiaBounty(val) => unsafe {
+                    CORNACOPIA_FOOD_SPAWN = val;
+                },
+                ToSim::SetMutationChance(val) => unsafe {
+                    MUTATE_DISTRIBUTION = Some(Bernoulli::new(val).unwrap());
+                },
+                ToSim::SetGeneralFoodChance(val) => unsafe {
+                    NORMAL_FOOD_DISTRIBUTION = Some(Bernoulli::new(val).unwrap());
                 },
             }
         }
@@ -364,6 +381,10 @@ pub enum ToSim {
     // Unpopulate(evo::CellState),
     Tick(usize),
     SetSpawnChance(f64),
+    SetMutationChance(f64),
+    SetGeneralFoodChance(f64),
+    SetCornacopiaBounty(u32),
+    SetCornacopiaChance(f64),
 }
 
 /// Messages sent from the grid.
@@ -386,7 +407,12 @@ pub struct Sim {
 }
 
 impl Sim {
-    fn new(width: usize, height: usize, openness: usize) -> Self {
+    fn new(
+        width: usize,
+        height: usize,
+        openness: usize,
+        cornacopia_count_probability: f64,
+    ) -> Self {
         use crate::gridgen;
         let mut grid = SquareGrid::<Evonomics>::new(width, height);
         let rng = unsafe { rng() };
@@ -394,8 +420,9 @@ impl Sim {
         let (open_width, open_height) = (width / open_scale, height / open_scale);
         let os = (open_height, open_width);
         let walls = gridgen::generate_walls(rng, os);
+        let cornacopia_spawn_dist = Bernoulli::new(cornacopia_count_probability).unwrap();
         for (ix, cell) in grid.get_cells_mut().iter_mut().enumerate() {
-            if rng.sample(*SOURCE_SPAWN_DISTRIBUTION) {
+            if rng.sample(cornacopia_spawn_dist) {
                 cell.ty = CellType::Source;
             }
             let x = ix % width;

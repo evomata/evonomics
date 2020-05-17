@@ -39,7 +39,7 @@ struct EvonomicsWorld {
     toggle_spawn_rate_type_button: button::State,
     is_inverse_rate_type: bool,
     spawn_slider: slider::State,
-    spawn_rate: f32,
+    spawn_rate: f64,
     spawn_chance: f64,
     toggle_run_button: button::State,
     toggle_grid_button: button::State,
@@ -53,6 +53,19 @@ struct EvonomicsWorld {
     width: usize,
     grid_openness_slider: slider::State,
     openness: usize,
+
+    cornacopia_probability_slider: slider::State,
+    cornacopia_probability: f64,
+    cornacopia_bounty_slider: slider::State,
+    cornacopia_bounty: u32,
+    general_food_slider: slider::State,
+    cell_food_probability: f64,
+    mutation_probability_slider: slider::State,
+    mutation_chance: f64,
+
+    cornacopia_count_probability_slider: slider::State,
+    cornacopia_count_probability: f64,
+
     menu_state: MenuState,
     is_running_sim: bool,
     next_speed: Option<usize>,
@@ -83,6 +96,11 @@ enum Message {
     DimensionSet(f32),
     AspectChanged(AspectRatio),
     OpennessSet(f32),
+    CornacopiaProbabilityChanged(f32),
+    CornacopiaBountyChanged(f32),
+    GeneralFoodProbabilityChanged(f32),
+    MutationChanceChanged(f32),
+    CornacopiaCountProbabilityChanged(f32),
     ToggleSim,
     ToggleGrid,
     Tick,
@@ -122,7 +140,7 @@ fn spawn_rate(
     is_inverse_rate_type: bool,
     cell_count: usize,
     height: usize,
-    spawn_rate: f32,
+    spawn_rate: f64,
 ) -> f64 {
     if is_inverse_rate_type {
         spawn_rate as f64 / ((cell_count + 1) * height) as f64
@@ -140,7 +158,7 @@ impl<'a> Application for EvonomicsWorld {
     type Flags = ();
 
     fn new(_: ()) -> (EvonomicsWorld, Command<Self::Message>) {
-        const INITIAL_SPAWN_RATE: f32 = 0.5;
+        const INITIAL_SPAWN_RATE: f64 = 0.5;
         const INITIAL_IS_INVERSE_RATE: bool = true;
         const INITIAL_WIDTH: usize = 512;
         const INITIAL_ASPECT: AspectRatio = AspectRatio::SixteenToTen;
@@ -173,6 +191,19 @@ impl<'a> Application for EvonomicsWorld {
                 width: INITIAL_WIDTH,
                 grid_openness_slider: Default::default(),
                 openness: 1,
+
+                cornacopia_probability_slider: Default::default(),
+                cornacopia_probability: 0.1,
+                cornacopia_bounty_slider: Default::default(),
+                cornacopia_bounty: 16,
+                general_food_slider: Default::default(),
+                cell_food_probability: 0.1,
+                mutation_probability_slider: Default::default(),
+                mutation_chance: 0.05,
+
+                cornacopia_count_probability_slider: Default::default(),
+                cornacopia_count_probability: 0.005,
+
                 menu_state: MenuState::MainMenu,
                 is_running_sim: false,
                 next_speed: None,
@@ -208,8 +239,55 @@ impl<'a> Application for EvonomicsWorld {
             Message::OpennessSet(new_openness) => {
                 self.openness = new_openness as usize;
             }
+            Message::CornacopiaProbabilityChanged(val) => {
+                self.cornacopia_probability = val as f64;
+                match self.sim_tx {
+                    Some(ref mut tx) => {
+                        // If the channel is full, dont send it.
+                        tx.try_send(sim::ToSim::SetCornacopiaChance(val as f64 / 10.0))
+                            .ok();
+                    }
+                    None => {}
+                }
+            }
+            Message::CornacopiaBountyChanged(val) => {
+                self.cornacopia_bounty = val as u32;
+                match self.sim_tx {
+                    Some(ref mut tx) => {
+                        // If the channel is full, dont send it.
+                        tx.try_send(sim::ToSim::SetCornacopiaBounty(val as u32))
+                            .ok();
+                    }
+                    None => {}
+                }
+            }
+            Message::GeneralFoodProbabilityChanged(val) => {
+                self.cell_food_probability = val as f64;
+                match self.sim_tx {
+                    Some(ref mut tx) => {
+                        // If the channel is full, dont send it.
+                        tx.try_send(sim::ToSim::SetGeneralFoodChance(val as f64 / 10.0))
+                            .ok();
+                    }
+                    None => {}
+                }
+            }
+            Message::MutationChanceChanged(val) => {
+                self.mutation_chance = val as f64;
+                match self.sim_tx {
+                    Some(ref mut tx) => {
+                        // If the channel is full, dont send it.
+                        tx.try_send(sim::ToSim::SetMutationChance(val as f64 / 500.0))
+                            .ok();
+                    }
+                    None => {}
+                }
+            }
+            Message::CornacopiaCountProbabilityChanged(val) => {
+                self.cornacopia_count_probability = val as f64;
+            }
             Message::SpawnRateChanged(new_rate) => {
-                self.spawn_rate = new_rate;
+                self.spawn_rate = new_rate as f64;
                 self.spawn_chance = spawn_rate(
                     self.is_inverse_rate_type,
                     self.cell_count,
@@ -252,6 +330,7 @@ impl<'a> Application for EvonomicsWorld {
                     self.width,
                     self.aspect_ratio.get_height(self.width),
                     self.openness,
+                    self.cornacopia_count_probability / 10.0,
                 );
 
                 self.sim_tx = Some(sim_tx);
@@ -296,7 +375,7 @@ impl<'a> Application for EvonomicsWorld {
                             }
                             None => {}
                         }
-                        self.update(Message::SpawnRateChanged(self.spawn_rate));
+                        self.update(Message::SpawnRateChanged(self.spawn_rate as f32));
                     }
                     None => {}
                 }
@@ -383,6 +462,28 @@ impl<'a> Application for EvonomicsWorld {
                             self.width,
                             self.aspect_ratio.get_height(self.width),
                             self.width * self.aspect_ratio.get_height(self.width)
+                        ))
+                        .size(16)
+                        .vertical_alignment(VerticalAlignment::Bottom)
+                        .horizontal_alignment(HorizontalAlignment::Center)
+                        .width(Length::Fill),
+                    )
+                    .push(
+                        Slider::new(
+                            &mut self.cornacopia_count_probability_slider,
+                            0.0..=1.0,
+                            self.cornacopia_count_probability as f32,
+                            Message::CornacopiaCountProbabilityChanged,
+                        )
+                        .style(style::Theme::Default),
+                    )
+                    .push(
+                        Text::new(format!(
+                            "Cornacopias Likely {}",
+                            (self.width as f32
+                                * self.aspect_ratio.get_height(self.width) as f32
+                                * self.cornacopia_count_probability as f32
+                                / 10.0) as usize
                         ))
                         .size(16)
                         .vertical_alignment(VerticalAlignment::Bottom)
@@ -478,6 +579,91 @@ impl<'a> Application for EvonomicsWorld {
                 )
                 .style(style::Theme::Nested);
 
+                let mutation_controls = Container::new(
+                    Column::new()
+                        .padding(style::PADDING)
+                        .push(
+                            Slider::new(
+                                &mut self.mutation_probability_slider,
+                                0.0..=1.0,
+                                self.mutation_chance as f32,
+                                Message::MutationChanceChanged,
+                            )
+                            .style(style::Theme::Default),
+                        )
+                        .push(
+                            Text::new(format!(
+                                "ave tick to mutation: {:<3}",
+                                500.0 / self.mutation_chance
+                            ))
+                            .size(16)
+                            .vertical_alignment(VerticalAlignment::Bottom)
+                            .horizontal_alignment(HorizontalAlignment::Center)
+                            .width(Length::Fill),
+                        ),
+                )
+                .style(style::Theme::Nested);
+
+                let food_controls = Container::new(
+                    Column::new()
+                        .padding(style::PADDING)
+                        .push(
+                            Slider::new(
+                                &mut self.general_food_slider,
+                                0.0..=1.0,
+                                self.cell_food_probability as f32,
+                                Message::GeneralFoodProbabilityChanged,
+                            )
+                            .style(style::Theme::Default),
+                        )
+                        .push(
+                            Text::new(format!(
+                                "ave tick to food: {:<3}",
+                                10.0 / self.cell_food_probability
+                            ))
+                            .size(16)
+                            .vertical_alignment(VerticalAlignment::Bottom)
+                            .horizontal_alignment(HorizontalAlignment::Center)
+                            .width(Length::Fill),
+                        )
+                        .push(
+                            Slider::new(
+                                &mut self.cornacopia_bounty_slider,
+                                0.0..=100.0,
+                                self.cornacopia_bounty as f32,
+                                Message::CornacopiaBountyChanged,
+                            )
+                            .style(style::Theme::Default),
+                        )
+                        .push(
+                            Text::new(format!("bounty: {:<3}", self.cornacopia_bounty))
+                                .size(16)
+                                .vertical_alignment(VerticalAlignment::Bottom)
+                                .horizontal_alignment(HorizontalAlignment::Center)
+                                .width(Length::Fill),
+                        )
+                        .push(
+                            Slider::new(
+                                &mut self.cornacopia_probability_slider,
+                                0.0..=1.0,
+                                self.cornacopia_probability as f32,
+                                Message::CornacopiaProbabilityChanged,
+                            )
+                            .style(style::Theme::Default),
+                        )
+                        .push(
+                            Text::new(format!(
+                                "ave tick for cornacopia: {}",
+                                10.0 / self.cornacopia_probability
+                            ))
+                            .size(16)
+                            .vertical_alignment(VerticalAlignment::Bottom)
+                            .horizontal_alignment(HorizontalAlignment::Center)
+                            .width(Length::Fill),
+                        ),
+                )
+                .style(style::Theme::Nested);
+
                 let spawn_controls = Container::new(
                     Column::new()
                         .padding(style::PADDING)
@@ -498,7 +684,7 @@ impl<'a> Application for EvonomicsWorld {
                             Slider::new(
                                 &mut self.spawn_slider,
                                 0.0..=1.0,
-                                self.spawn_rate,
+                                self.spawn_rate as f32,
                                 Message::SpawnRateChanged,
                             )
                             .style(style::Theme::Default),
@@ -542,6 +728,8 @@ impl<'a> Application for EvonomicsWorld {
                     )
                     .push(fps_controls)
                     .push(spawn_controls)
+                    .push(food_controls)
+                    .push(mutation_controls)
                     .push(
                         Button::new(
                             &mut self.toggle_grid_button,
