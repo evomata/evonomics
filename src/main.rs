@@ -152,7 +152,7 @@ fn spawn_rate(
     spawn_rate: f64,
 ) -> f64 {
     if is_inverse_rate_type {
-        spawn_rate as f64 / ((cell_count + 1) * height) as f64
+        3.0 * spawn_rate as f64 / ((cell_count + 1) * height) as f64
     } else {
         (SPAWN_CURVE.powf(1.0 - spawn_rate as f64) - SPAWN_CURVE) / (1.0 - SPAWN_CURVE)
     }
@@ -462,6 +462,8 @@ impl<'a> Application for EvonomicsWorld {
                     )
                     .push(
                         Row::new()
+                            .width(Length::Fill)
+                            .spacing(style::SPACING)
                             .push(Radio::new(
                                 AspectRatio::OneToOne,
                                 "1:1",
@@ -640,7 +642,7 @@ impl<'a> Application for EvonomicsWorld {
                         )
                         .push(
                             Text::new(format!(
-                                "ave tick to mutation: {:<3}",
+                                "ave tick to mutation: {:.1}",
                                 500.0 / self.mutation_chance
                             ))
                             .size(16)
@@ -665,7 +667,7 @@ impl<'a> Application for EvonomicsWorld {
                         )
                         .push(
                             Text::new(format!(
-                                "ave tick to food: {:<3}",
+                                "ave tick to food: {:.1}",
                                 10.0 / self.cell_food_probability
                             ))
                             .size(16)
@@ -700,7 +702,7 @@ impl<'a> Application for EvonomicsWorld {
                         )
                         .push(
                             Text::new(format!(
-                                "ave tick for cornacopia: {}",
+                                "ave tick for cornacopia: {:.1}",
                                 10.0 / self.cornacopia_probability
                             ))
                             .size(16)
