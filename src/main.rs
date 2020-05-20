@@ -369,7 +369,6 @@ impl<'a> Application for EvonomicsWorld {
             }
             Message::SimView => {
                 self.menu_state = MenuState::SimMenu;
-                // self.is_running_sim = true;
 
                 let (sim_tx, sim_rx, sim_runner) = sim::run_sim(
                     3,

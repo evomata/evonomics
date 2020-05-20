@@ -381,10 +381,10 @@ pub fn run_sim(
             match oncoming {
                 ToSim::Tick(times) => {
                     for _ in 0..times {
-                        sim = block_in_place(move || sim.tick(1));
+                        sim = block_in_place(move || sim.tick());
                         outgoing.send(sim.market()).await.ok();
                     }
-                    let view = block_in_place(|| sim.view());
+                    let view = block_in_place(|| sim.view(times));
                     outgoing.send(FromSim::View(view)).await.ok();
                 }
                 ToSim::SetSpawnChance(new_spawn_chance) => unsafe {
@@ -446,7 +446,6 @@ pub struct View {
 pub struct Sim {
     grid: LifeContainer,
     reserve: u32,
-    frames_elapsed: usize,
     last_bid: Option<i32>,
     last_ask: Option<i32>,
     buy_volume: u32,
@@ -490,7 +489,7 @@ impl Sim {
         Self {
             grid: grid,
             reserve: width as u32 * height as u32 * RESERVE_MULTIPLIER,
-            frames_elapsed: 0,
+
             last_bid: None,
             last_ask: None,
             buy_volume: 0,
@@ -498,9 +497,8 @@ impl Sim {
         }
     }
 
-    pub fn tick(mut self, times: usize) -> Self {
+    pub fn tick(mut self) -> Self {
         use std::cmp::Ordering;
-        self.frames_elapsed = times;
 
         #[derive(PartialEq, Eq)]
         struct Order {
@@ -540,149 +538,119 @@ impl Sim {
             }
         }
 
-        for _ in 0..times {
-            // Cycle the grid.
-            self.grid.cycle();
-            // Extract all trades.
-            let mut orders: Vec<Order> = self
-                .grid
-                .get_cells_mut()
-                .iter_mut()
-                .enumerate()
-                .filter_map(|(ix, cell)| cell.trade.take().map(|trade| (ix, trade)))
-                .map(|(index, Trade { rate, food })| Order { index, rate, food })
-                .collect();
-            // Put the trades into a random order.
-            orders.shuffle(unsafe { rng() });
+        // Cycle the grid.
+        self.grid.cycle();
+        // Extract all trades.
+        let mut orders: Vec<Order> = self
+            .grid
+            .get_cells_mut()
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(ix, cell)| cell.trade.take().map(|trade| (ix, trade)))
+            .map(|(index, Trade { rate, food })| Order { index, rate, food })
+            .collect();
+        // Put the trades into a random order.
+        orders.shuffle(unsafe { rng() });
 
-            // Reset buy and sell volume.
-            self.buy_volume = 0;
-            self.sell_volume = 0;
-            let mut bids: MinMaxHeap<Order> = MinMaxHeap::new();
-            let mut asks: MinMaxHeap<Order> = MinMaxHeap::new();
-            let fulfill = |sim: &mut Self, new: &mut Order, existing: &mut Order| {
-                let rate = existing.rate;
-                let num = std::cmp::min(new.food.abs(), existing.food.abs());
-                {
-                    let new_cell = &mut sim.grid.get_cells_mut()[new.index];
-                    new_cell.money =
-                        (new_cell.money as i32 + rate * num * new.food.signum()) as u32;
-                    new_cell.food = (new_cell.food as i32 - num * new.food.signum()) as u32;
-                    new.food -= new.food.signum() * num;
-                }
-                {
-                    let existing_cell = &mut sim.grid.get_cells_mut()[existing.index];
-                    existing_cell.money =
-                        (existing_cell.money as i32 + rate * num * existing.food.signum()) as u32;
-                    existing_cell.food =
-                        (existing_cell.food as i32 - num * existing.food.signum()) as u32;
-                    existing.food -= existing.food.signum() * num;
-                }
-                sim.buy_volume += num as u32;
-                sim.sell_volume += num as u32;
-            };
-            // Allows an ask order to be fulfilled by the reserve at a rate of one money per food.
-            let fulfill_reserve = |sim: &mut Self, order: &mut Order| {
-                let num = std::cmp::min(order.food, sim.reserve as i32);
-                {
-                    let cell = &mut sim.grid.get_cells_mut()[order.index];
-                    cell.money = (cell.money as i32 + num * order.food.signum()) as u32;
-                    cell.food = (cell.food as i32 - num * order.food.signum()) as u32;
-                    order.food -= order.food.signum() * num;
-                }
-                sim.reserve -= num as u32;
-                sim.sell_volume += num as u32;
-            };
-            // Allows a bid order to buy food from the reserve at one money per food.
-            let food_reserve = |sim: &mut Self, order: &mut Order| {
-                // We will take as much as there is in the order.
-                let num = -order.food;
-                {
-                    let cell = &mut sim.grid.get_cells_mut()[order.index];
-                    cell.money = (cell.money as i32 + num * order.food.signum()) as u32;
-                    cell.food = (cell.food as i32 - num * order.food.signum()) as u32;
-                    order.food -= order.food.signum() * num;
-                }
-                sim.reserve += num as u32;
-                sim.buy_volume += num as u32;
-            };
-            for mut order in orders {
-                let intent = order.intent();
+        // Reset buy and sell volume.
+        self.buy_volume = 0;
+        self.sell_volume = 0;
+        let mut bids: MinMaxHeap<Order> = MinMaxHeap::new();
+        let mut asks: MinMaxHeap<Order> = MinMaxHeap::new();
+        let fulfill = |sim: &mut Self, new: &mut Order, existing: &mut Order| {
+            let rate = existing.rate;
+            let num = std::cmp::min(new.food.abs(), existing.food.abs());
+            {
+                let new_cell = &mut sim.grid.get_cells_mut()[new.index];
+                new_cell.money = (new_cell.money as i32 + rate * num * new.food.signum()) as u32;
+                new_cell.food = (new_cell.food as i32 - num * new.food.signum()) as u32;
+                new.food -= new.food.signum() * num;
+            }
+            {
+                let existing_cell = &mut sim.grid.get_cells_mut()[existing.index];
+                existing_cell.money =
+                    (existing_cell.money as i32 + rate * num * existing.food.signum()) as u32;
+                existing_cell.food =
+                    (existing_cell.food as i32 - num * existing.food.signum()) as u32;
+                existing.food -= existing.food.signum() * num;
+            }
+            sim.buy_volume += num as u32;
+            sim.sell_volume += num as u32;
+        };
+        // Allows an ask order to be fulfilled by the reserve at a rate of one money per food.
+        let fulfill_reserve = |sim: &mut Self, order: &mut Order| {
+            let num = std::cmp::min(order.food, sim.reserve as i32);
+            {
+                let cell = &mut sim.grid.get_cells_mut()[order.index];
+                cell.money = (cell.money as i32 + num * order.food.signum()) as u32;
+                cell.food = (cell.food as i32 - num * order.food.signum()) as u32;
+                order.food -= order.food.signum() * num;
+            }
+            sim.reserve -= num as u32;
+            sim.sell_volume += num as u32;
+        };
+        // Allows a bid order to buy food from the reserve at one money per food.
+        let food_reserve = |sim: &mut Self, order: &mut Order| {
+            // We will take as much as there is in the order.
+            let num = -order.food;
+            {
+                let cell = &mut sim.grid.get_cells_mut()[order.index];
+                cell.money = (cell.money as i32 + num * order.food.signum()) as u32;
+                cell.food = (cell.food as i32 - num * order.food.signum()) as u32;
+                order.food -= order.food.signum() * num;
+            }
+            sim.reserve += num as u32;
+            sim.buy_volume += num as u32;
+        };
+        for mut order in orders {
+            let intent = order.intent();
 
-                match intent {
-                    Intent::Bid => {
-                        // Keep resolving the bid with asks until the order runs out or the asks are too high.
-                        loop {
-                            if let Some(mut ask) = asks.pop_min() {
-                                if ask.rate > order.rate {
-                                    // The best asking price was higher than our bid, so just push the bid to the bids.
-                                    if order.food != 0 {
-                                        bids.push(order);
-                                    }
-                                    break;
-                                } else {
-                                    // Fulfill as much as possible on both ends.
-                                    fulfill(&mut self, &mut order, &mut ask);
-
-                                    // If the ask is not complete, we must return it to the asks.
-                                    if ask.food != 0 {
-                                        asks.push(ask);
-                                    }
-
-                                    // If the order is complete, we can break from this loop.
-                                    if order.food == 0 {
-                                        break;
-                                    }
-                                }
-                            } else {
-                                if REPO {
-                                    // Only repo the money if there are no other ask offers out there.
-                                    if order.rate >= 1 {
-                                        food_reserve(&mut self, &mut order);
-                                    }
-                                }
-                                // There were no asks, so push our bid.
+            match intent {
+                Intent::Bid => {
+                    // Keep resolving the bid with asks until the order runs out or the asks are too high.
+                    loop {
+                        if let Some(mut ask) = asks.pop_min() {
+                            if ask.rate > order.rate {
+                                // The best asking price was higher than our bid, so just push the bid to the bids.
                                 if order.food != 0 {
                                     bids.push(order);
                                 }
                                 break;
+                            } else {
+                                // Fulfill as much as possible on both ends.
+                                fulfill(&mut self, &mut order, &mut ask);
+
+                                // If the ask is not complete, we must return it to the asks.
+                                if ask.food != 0 {
+                                    asks.push(ask);
+                                }
+
+                                // If the order is complete, we can break from this loop.
+                                if order.food == 0 {
+                                    break;
+                                }
                             }
+                        } else {
+                            if REPO {
+                                // Only repo the money if there are no other ask offers out there.
+                                if order.rate >= 1 {
+                                    food_reserve(&mut self, &mut order);
+                                }
+                            }
+                            // There were no asks, so push our bid.
+                            if order.food != 0 {
+                                bids.push(order);
+                            }
+                            break;
                         }
                     }
-                    Intent::Ask => {
-                        // Keep resolving the ask with bids until the order runs out or the bids are too low.
-                        loop {
-                            if let Some(mut bid) = bids.pop_max() {
-                                if bid.rate < order.rate {
-                                    // The best bid price was lower than our ask, so just push the ask to the asks.
-                                    // Try to sell to the reserve.
-                                    if order.rate <= 1 {
-                                        fulfill_reserve(&mut self, &mut order);
-                                    }
-                                    // There were no bids, so push our ask.
-                                    if order.food != 0 {
-                                        asks.push(order);
-                                    }
-                                    break;
-                                } else {
-                                    // If the reserve provides a better deal, then use the reserve.
-                                    if bid.rate < 1 {
-                                        fulfill_reserve(&mut self, &mut order);
-                                    }
-                                    // Fulfill as much as possible on both ends.
-                                    fulfill(&mut self, &mut order, &mut bid);
-
-                                    // If the bid is not complete, we must return it to the bids.
-                                    if bid.food != 0 {
-                                        bids.push(bid);
-                                    }
-
-                                    // If the order is complete, we can break from this loop.
-                                    if order.food == 0 {
-                                        break;
-                                    }
-                                }
-                            } else {
+                }
+                Intent::Ask => {
+                    // Keep resolving the ask with bids until the order runs out or the bids are too low.
+                    loop {
+                        if let Some(mut bid) = bids.pop_max() {
+                            if bid.rate < order.rate {
+                                // The best bid price was lower than our ask, so just push the ask to the asks.
                                 // Try to sell to the reserve.
                                 if order.rate <= 1 {
                                     fulfill_reserve(&mut self, &mut order);
@@ -692,26 +660,54 @@ impl Sim {
                                     asks.push(order);
                                 }
                                 break;
+                            } else {
+                                // If the reserve provides a better deal, then use the reserve.
+                                if bid.rate < 1 {
+                                    fulfill_reserve(&mut self, &mut order);
+                                }
+                                // Fulfill as much as possible on both ends.
+                                fulfill(&mut self, &mut order, &mut bid);
+
+                                // If the bid is not complete, we must return it to the bids.
+                                if bid.food != 0 {
+                                    bids.push(bid);
+                                }
+
+                                // If the order is complete, we can break from this loop.
+                                if order.food == 0 {
+                                    break;
+                                }
                             }
+                        } else {
+                            // Try to sell to the reserve.
+                            if order.rate <= 1 {
+                                fulfill_reserve(&mut self, &mut order);
+                            }
+                            // There were no bids, so push our ask.
+                            if order.food != 0 {
+                                asks.push(order);
+                            }
+                            break;
                         }
                     }
-                    Intent::Nothing => {}
                 }
+                Intent::Nothing => {}
             }
-            self.last_bid = bids.pop_max().map(|order| order.rate);
-            self.last_ask = asks.pop_min().map(|order| order.rate);
-            // Return all the money on walls to the reserve
-            for cell in self.grid.get_cells_mut() {
-                if cell.ty == CellType::Wall {
-                    self.reserve += cell.money;
-                    cell.money = 0;
-                }
-            }
-            assert_eq!(
-                self.grid.get_cells().iter().map(|c| c.money).sum::<u32>() + self.reserve,
-                self.grid.get_width() as u32 * self.grid.get_height() as u32 * RESERVE_MULTIPLIER
-            );
         }
+        self.last_bid = bids.pop_max().map(|order| order.rate);
+        self.last_ask = asks.pop_min().map(|order| order.rate);
+        // Return all the money on walls to the reserve
+        for cell in self.grid.get_cells_mut() {
+            if cell.ty == CellType::Wall {
+                self.reserve += cell.money;
+                cell.money = 0;
+            }
+        }
+        assert_eq!(
+            self.grid.get_cells().iter().map(|c| c.money).sum::<u32>() + self.reserve,
+            self.grid.get_width() as u32 * self.grid.get_height() as u32 * RESERVE_MULTIPLIER
+        );
+
         self
     }
 
@@ -725,8 +721,7 @@ impl Sim {
         }
     }
 
-    pub fn view(&self) -> View {
-        let temp = self.frames_elapsed;
+    pub fn view(&self, times: usize) -> View {
         View {
             colors: Array2::from_shape_vec(
                 (self.grid.get_height(), self.grid.get_width()),
@@ -748,7 +743,7 @@ impl Sim {
             cells: self.grid.get_cells().iter().fold(0, |acc, cell| {
                 acc + if cell.brain.is_some() { 1 } else { 0 }
             }),
-            ticks: temp,
+            ticks: times,
         }
     }
 }
