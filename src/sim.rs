@@ -120,11 +120,13 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
 
         match decision {
             Decision::Move(dir) => {
+                let is_wall = neighbors[dir].ty == CellType::Wall;
+                let moved_money = if is_wall { 0 } else { cell.money };
                 if cell.food > MOVE_PENALTY {
                     (
                         Diff {
                             consume: cell.food,
-                            spend: cell.money,
+                            spend: moved_money,
                             moved: true,
                             trade: None,
                         },
@@ -132,7 +134,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             if nd == dir {
                                 Move {
                                     food: cell.food - 1 - MOVE_PENALTY,
-                                    money: cell.money,
+                                    money: moved_money,
                                     brain: cell.brain.clone(),
                                 }
                             } else {
@@ -149,11 +151,13 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                 }
             }
             Decision::Divide(dir) => {
+                let is_wall = neighbors[dir].ty == CellType::Wall;
+                let moved_money = if is_wall { 0 } else { cell.money };
                 if cell.food >= 2 + MOVE_PENALTY {
                     (
                         Diff {
                             consume: cell.food / 2 + 1 + MOVE_PENALTY / 2,
-                            spend: cell.money / 2,
+                            spend: moved_money / 2,
                             moved: false,
                             trade: None,
                         },
@@ -161,7 +165,7 @@ impl<'a> gridsim::Sim<'a> for Evonomics {
                             if nd == dir {
                                 Move {
                                     food: cell.food / 2 - MOVE_PENALTY / 2,
-                                    money: cell.money / 2,
+                                    money: moved_money / 2,
                                     brain: {
                                         if let Some(mut t) = cell.brain.clone() {
                                             t.generation += 1;
