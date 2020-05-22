@@ -149,8 +149,8 @@ pub fn graph_mean_max_age(
     let min = mean_ages.iter().chain(max_ages).copied().min().unwrap();
     let max = mean_ages.iter().chain(max_ages).copied().max().unwrap();
 
-    const WIDTH: u32 = 200;
-    const HEIGHT: u32 = 150;
+    const WIDTH: u32 = 240;
+    const HEIGHT: u32 = 200;
     let mut buffer = vec![0; WIDTH as usize * HEIGHT as usize * 4];
     let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(&mut buffer, (WIDTH, HEIGHT))?
         .into_drawing_area();
@@ -159,7 +159,7 @@ pub fn graph_mean_max_age(
 
     let mut chart = ChartBuilder::on(&root)
         .set_label_area_size(LabelAreaPosition::Top, 5)
-        .set_label_area_size(LabelAreaPosition::Left, 40)
+        .set_label_area_size(LabelAreaPosition::Left, 80)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
         .build_ranged(0..mean_ages.len(), min..max + 1)?
         .set_secondary_coord(0..mean_ages.len(), min..max + 1);
