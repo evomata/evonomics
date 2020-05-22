@@ -800,7 +800,7 @@ impl<'a> Application for EvonomicsWorld {
                     Column::new()
                         .padding(2)
                         .push(
-                            Text::new("Age (mean/max)")
+                            Text::new("Generation (mean/max)")
                                 .horizontal_alignment(HorizontalAlignment::Center)
                                 .width(Length::Fill),
                         )
