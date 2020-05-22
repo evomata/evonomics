@@ -16,6 +16,8 @@ const MAX_EXECUTE: usize = 128;
 const INITIAL_GENOME_SCALE: f64 = 256.0;
 const INITIAL_ENTRIES_SCALE: f64 = 64.0;
 
+const RECOLOR_AFTER_MUTATIONS: usize = 1;
+
 lazy_static::lazy_static! {
     static ref HALF_CHANCE: Bernoulli = Bernoulli::new(0.5).unwrap();
 }
@@ -112,6 +114,10 @@ impl Brain {
 
     pub fn mutate(&mut self, rng: &mut impl Rng) {
         Arc::make_mut(&mut self.code).mutate(rng);
+        // Color is updated to differentiate species even so many mutations.
+        if self.code.mutated % RECOLOR_AFTER_MUTATIONS == 0 {
+            self.color = random_color(rng);
+        }
     }
 }
 
@@ -198,10 +204,12 @@ fn crossover(rng: &mut impl Rng, dnas: impl IntoIterator<Item = Dna>) -> Dna {
 struct Dna {
     sequence: Vec<Codon>,
     entries: Vec<usize>,
+    mutated: usize,
 }
 
 impl Dna {
     fn mutate(&mut self, rng: &mut impl Rng) {
+        self.mutated += 1;
         // Handle the creation and removal of codons.
         if rng.sample(*HALF_CHANCE) {
             // Add a codon.
@@ -353,7 +361,11 @@ impl Distribution<Dna> for Standard {
                 entries
             }
         };
-        Dna { sequence, entries }
+        Dna {
+            sequence,
+            entries,
+            mutated: 0,
+        }
     }
 }
 
