@@ -137,3 +137,50 @@ pub fn graph_volumes(
 
     Ok(image::Handle::from_pixels(WIDTH, HEIGHT, buffer))
 }
+
+pub fn graph_mean_max_age(
+    mean_ages: &[u64],
+    max_ages: &[u64],
+) -> Result<image::Handle, Box<dyn std::error::Error>> {
+    assert_eq!(mean_ages.len(), max_ages.len());
+    if mean_ages.is_empty() {
+        return Ok(image::Handle::from_pixels(0, 0, vec![]));
+    }
+    let min = mean_ages.iter().chain(max_ages).copied().min().unwrap();
+    let max = mean_ages.iter().chain(max_ages).copied().max().unwrap();
+
+    const WIDTH: u32 = 200;
+    const HEIGHT: u32 = 150;
+    let mut buffer = vec![0; WIDTH as usize * HEIGHT as usize * 4];
+    let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(&mut buffer, (WIDTH, HEIGHT))?
+        .into_drawing_area();
+
+    root.fill(&WHITE)?;
+
+    let mut chart = ChartBuilder::on(&root)
+        .set_label_area_size(LabelAreaPosition::Top, 5)
+        .set_label_area_size(LabelAreaPosition::Left, 40)
+        .set_label_area_size(LabelAreaPosition::Bottom, 5)
+        .build_ranged(0..mean_ages.len(), min..max)?
+        .set_secondary_coord(0..mean_ages.len(), min..max);
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .disable_y_mesh()
+        .draw()?;
+
+    chart.draw_series(LineSeries::new(
+        mean_ages.iter().copied().enumerate(),
+        &CYAN,
+    ))?;
+    chart.draw_secondary_series(LineSeries::new(
+        max_ages.iter().copied().enumerate(),
+        &MAGENTA,
+    ))?;
+
+    drop(chart);
+    drop(root);
+
+    Ok(image::Handle::from_pixels(WIDTH, HEIGHT, buffer))
+}

@@ -32,7 +32,8 @@ static mut MUTATE_DISTRIBUTION: Option<Bernoulli> = None;
 static mut CORNACOPIA_FOOD_DISTRIBUTION: Option<Bernoulli> = None;
 static mut NORMAL_FOOD_DISTRIBUTION: Option<Bernoulli> = None;
 
-const RESERVE_MULTIPLIER: u32 = 64;
+const RESERVE_MULTIPLIER: u32 = 0;
+const TILE_MONEY_SPAWN: u32 = 64;
 
 const REPO: bool = false;
 
@@ -386,7 +387,7 @@ pub fn run_sim(
                 ToSim::Tick(times) => {
                     for _ in 0..times {
                         sim = block_in_place(move || sim.tick());
-                        outgoing.send(sim.market()).await.ok();
+                        outgoing.send(sim.stats()).await.ok();
                     }
                     let view = block_in_place(|| sim.view(times));
                     outgoing.send(FromSim::View(view)).await.ok();
@@ -430,12 +431,14 @@ pub enum ToSim {
 #[derive(Debug)]
 pub enum FromSim {
     View(View),
-    Market {
+    Stats {
         bid: Option<i32>,
         ask: Option<i32>,
         reserve: u32,
         buy_volume: u32,
         sell_volume: u32,
+        mean_age: u64,
+        max_age: u64,
     },
 }
 
@@ -454,6 +457,8 @@ pub struct Sim {
     last_ask: Option<i32>,
     buy_volume: u32,
     sell_volume: u32,
+    mean_age: u64,
+    max_age: u64,
 }
 
 impl Sim {
@@ -488,6 +493,8 @@ impl Sim {
 
             if dir(0, 0) {
                 cell.ty = CellType::Wall;
+            } else {
+                cell.money = TILE_MONEY_SPAWN;
             }
         }
         Self {
@@ -498,6 +505,8 @@ impl Sim {
             last_ask: None,
             buy_volume: 0,
             sell_volume: 0,
+            mean_age: 0,
+            max_age: 0,
         }
     }
 
@@ -700,6 +709,16 @@ impl Sim {
         }
         self.last_bid = bids.pop_max().map(|order| order.rate);
         self.last_ask = asks.pop_min().map(|order| order.rate);
+        let ages = self
+            .grid
+            .get_cells()
+            .iter()
+            .filter_map(|c| c.brain.as_ref().map(|b| b.generation as u64));
+        self.mean_age = match ages.clone().count() {
+            0 => 0,
+            n => ages.clone().sum::<u64>() / n as u64,
+        };
+        self.max_age = ages.max().unwrap_or(0);
         // Return all the money on walls to the reserve
         for cell in self.grid.get_cells_mut() {
             if cell.ty == CellType::Wall {
@@ -707,21 +726,19 @@ impl Sim {
                 cell.money = 0;
             }
         }
-        assert_eq!(
-            self.grid.get_cells().iter().map(|c| c.money).sum::<u32>() + self.reserve,
-            self.grid.get_width() as u32 * self.grid.get_height() as u32 * RESERVE_MULTIPLIER
-        );
 
         self
     }
 
-    pub fn market(&self) -> FromSim {
-        FromSim::Market {
+    pub fn stats(&self) -> FromSim {
+        FromSim::Stats {
             ask: self.last_ask,
             bid: self.last_bid,
             reserve: self.reserve,
             buy_volume: self.buy_volume,
             sell_volume: self.sell_volume,
+            mean_age: self.mean_age,
+            max_age: self.max_age,
         }
     }
 

@@ -76,9 +76,12 @@ struct EvonomicsWorld {
     reserves: VecDeque<u32>,
     buy_volumes: VecDeque<u32>,
     sell_volumes: VecDeque<u32>,
+    mean_ages: VecDeque<u64>,
+    max_ages: VecDeque<u64>,
     bid_ask_graph: image::Handle,
     reserve_graph: image::Handle,
     volume_graph: image::Handle,
+    mean_max_age_graph: image::Handle,
     scroll: scrollable::State,
 }
 
@@ -220,9 +223,12 @@ impl<'a> Application for EvonomicsWorld {
                 reserves: VecDeque::new(),
                 buy_volumes: VecDeque::new(),
                 sell_volumes: VecDeque::new(),
+                mean_ages: VecDeque::new(),
+                max_ages: VecDeque::new(),
                 bid_ask_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
                 reserve_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
                 volume_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
+                mean_max_age_graph: image::Handle::from_pixels(1, 1, vec![255; 4]),
                 scroll: scrollable::State::new(),
             },
             Command::none(),
@@ -245,24 +251,30 @@ impl<'a> Application for EvonomicsWorld {
                         }
                         None => {}
                     },
-                    sim::FromSim::Market {
+                    sim::FromSim::Stats {
                         ask,
                         bid,
                         reserve,
                         buy_volume,
                         sell_volume,
+                        mean_age,
+                        max_age,
                     } => {
                         self.bids.push_back(bid.unwrap_or(0));
                         self.asks.push_back(ask.unwrap_or(0));
                         self.reserves.push_back(reserve);
                         self.buy_volumes.push_back(buy_volume);
                         self.sell_volumes.push_back(sell_volume);
+                        self.mean_ages.push_back(mean_age);
+                        self.max_ages.push_back(max_age);
                         if self.bids.len() > MAX_GRAPH_TIMES {
                             self.bids.pop_front();
                             self.asks.pop_front();
                             self.reserves.pop_front();
                             self.buy_volumes.pop_front();
                             self.sell_volumes.pop_front();
+                            self.mean_ages.pop_front();
+                            self.max_ages.pop_front();
                         }
                         // Update the bid/ask graph.
                         let bids: Vec<i32> = self.bids.clone().into();
@@ -270,12 +282,16 @@ impl<'a> Application for EvonomicsWorld {
                         let reserves: Vec<u32> = self.reserves.clone().into();
                         let buy_volumes: Vec<u32> = self.buy_volumes.clone().into();
                         let sell_volumes: Vec<u32> = self.sell_volumes.clone().into();
+                        let mean_ages: Vec<u64> = self.mean_ages.clone().into();
+                        let max_ages: Vec<u64> = self.max_ages.clone().into();
                         self.bid_ask_graph = plot::graph_bids_asks(&bids, &asks)
                             .expect("failed to create bid/ask graph");
                         self.reserve_graph = plot::graph_reserves(&reserves)
                             .expect("failed to create reserves graph");
                         self.volume_graph = plot::graph_volumes(&buy_volumes, &sell_volumes)
                             .expect("failed to create volume graph");
+                        self.mean_max_age_graph = plot::graph_mean_max_age(&mean_ages, &max_ages)
+                            .expect("failed to create mean max age graph");
                     }
                 }
                 return reciever_command(stream);
@@ -766,15 +782,29 @@ impl<'a> Application for EvonomicsWorld {
                 .height(Length::Shrink)
                 .width(Length::Fill);
 
-                let reserve_ui = Container::new(
+                // let reserve_ui = Container::new(
+                //     Column::new()
+                //         .padding(2)
+                //         .push(
+                //             Text::new("Reserve")
+                //                 .horizontal_alignment(HorizontalAlignment::Center)
+                //                 .width(Length::Fill),
+                //         )
+                //         .push(image::Image::new(self.reserve_graph.clone())),
+                // )
+                // .style(style::Theme::Nested)
+                // .height(Length::Shrink)
+                // .width(Length::Fill);
+
+                let age_ui = Container::new(
                     Column::new()
                         .padding(2)
                         .push(
-                            Text::new("Reserve")
+                            Text::new("Age (mean/max)")
                                 .horizontal_alignment(HorizontalAlignment::Center)
                                 .width(Length::Fill),
                         )
-                        .push(image::Image::new(self.reserve_graph.clone())),
+                        .push(image::Image::new(self.mean_max_age_graph.clone())),
                 )
                 .style(style::Theme::Nested)
                 .height(Length::Shrink)
@@ -840,8 +870,8 @@ impl<'a> Application for EvonomicsWorld {
                         .min_width(style::BUTTON_SIZE)
                         .on_press(Message::ToggleGrid),
                     )
+                    .push(age_ui)
                     .push(bid_ask_ui)
-                    .push(reserve_ui)
                     .push(volume_ui);
 
                 let scrollable = Scrollable::new(&mut self.scroll).push(grid_controls);
