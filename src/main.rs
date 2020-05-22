@@ -210,7 +210,7 @@ impl<'a> Application for EvonomicsWorld {
                 general_food_slider: Default::default(),
                 cell_food_probability: 0.1,
                 mutation_probability_slider: Default::default(),
-                mutation_chance: 0.05,
+                mutation_chance: 0.01,
                 cornacopia_count_probability_slider: Default::default(),
                 cornacopia_count_probability: 0.005,
                 menu_state: MenuState::MainMenu,
@@ -329,7 +329,7 @@ impl<'a> Application for EvonomicsWorld {
                 match self.sim_tx {
                     Some(ref mut tx) => {
                         // If the channel is full, dont send it.
-                        tx.try_send(sim::ToSim::SetGeneralFoodChance(val as f64 / 10.0))
+                        tx.try_send(sim::ToSim::SetGeneralFoodChance(val as f64))
                             .ok();
                     }
                     None => {}
@@ -340,7 +340,7 @@ impl<'a> Application for EvonomicsWorld {
                 match self.sim_tx {
                     Some(ref mut tx) => {
                         // If the channel is full, dont send it.
-                        tx.try_send(sim::ToSim::SetMutationChance(val as f64 / 500.0))
+                        tx.try_send(sim::ToSim::SetMutationChance(val as f64 / 5.0))
                             .ok();
                     }
                     None => {}
@@ -658,7 +658,7 @@ impl<'a> Application for EvonomicsWorld {
                         .push(
                             Text::new(format!(
                                 "ave tick to mutation: {:.1}",
-                                500.0 / self.mutation_chance
+                                5.0 / self.mutation_chance
                             ))
                             .size(16)
                             .vertical_alignment(VerticalAlignment::Bottom)
@@ -683,7 +683,7 @@ impl<'a> Application for EvonomicsWorld {
                         .push(
                             Text::new(format!(
                                 "ave tick to food: {:.1}",
-                                10.0 / self.cell_food_probability
+                                1.0 / self.cell_food_probability
                             ))
                             .size(16)
                             .vertical_alignment(VerticalAlignment::Bottom)
