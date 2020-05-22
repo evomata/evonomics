@@ -161,8 +161,8 @@ pub fn graph_mean_max_age(
         .set_label_area_size(LabelAreaPosition::Top, 5)
         .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
-        .build_ranged(0..mean_ages.len(), min as f64..(max + 1) as f64)?
-        .set_secondary_coord(0..mean_ages.len(), min as f64..(max + 1) as f64);
+        .build_ranged(0..mean_ages.len(), min..max + 1)?
+        .set_secondary_coord(0..mean_ages.len(), min..max + 1);
 
     chart
         .configure_mesh()
@@ -171,11 +171,11 @@ pub fn graph_mean_max_age(
         .draw()?;
 
     chart.draw_series(LineSeries::new(
-        mean_ages.iter().copied().map(|n| n as f64).enumerate(),
+        mean_ages.iter().copied().enumerate(),
         &CYAN,
     ))?;
     chart.draw_secondary_series(LineSeries::new(
-        max_ages.iter().copied().map(|n| n as f64).enumerate(),
+        max_ages.iter().copied().enumerate(),
         &MAGENTA,
     ))?;
 
