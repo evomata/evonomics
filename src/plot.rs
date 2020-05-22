@@ -25,8 +25,8 @@ pub fn graph_bids_asks(
         .set_label_area_size(LabelAreaPosition::Top, 5)
         .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
-        .build_ranged(0..bids.len(), min..max)?
-        .set_secondary_coord(0..bids.len(), min..max);
+        .build_ranged(0..bids.len(), min..max + 1)?
+        .set_secondary_coord(0..bids.len(), min..max + 1);
 
     chart
         .configure_mesh()
@@ -62,7 +62,7 @@ pub fn graph_reserves(reserves: &[u32]) -> Result<image::Handle, Box<dyn std::er
         .set_label_area_size(LabelAreaPosition::Top, 5)
         .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
-        .build_ranged(0..reserves.len(), min..max)?;
+        .build_ranged(0..reserves.len(), min..max + 1)?;
 
     chart
         .configure_mesh()
@@ -114,8 +114,8 @@ pub fn graph_volumes(
         .set_label_area_size(LabelAreaPosition::Top, 5)
         .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
-        .build_ranged(0..buy_volumes.len(), min..max)?
-        .set_secondary_coord(0..buy_volumes.len(), min..max);
+        .build_ranged(0..buy_volumes.len(), min..max + 1)?
+        .set_secondary_coord(0..buy_volumes.len(), min..max + 1);
 
     chart
         .configure_mesh()
@@ -161,8 +161,8 @@ pub fn graph_mean_max_age(
         .set_label_area_size(LabelAreaPosition::Top, 5)
         .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 5)
-        .build_ranged(0..mean_ages.len(), min..max)?
-        .set_secondary_coord(0..mean_ages.len(), min..max);
+        .build_ranged(0..mean_ages.len(), min as f64..(max + 1) as f64)?
+        .set_secondary_coord(0..mean_ages.len(), min as f64..(max + 1) as f64);
 
     chart
         .configure_mesh()
@@ -171,11 +171,11 @@ pub fn graph_mean_max_age(
         .draw()?;
 
     chart.draw_series(LineSeries::new(
-        mean_ages.iter().copied().enumerate(),
+        mean_ages.iter().copied().map(|n| n as f64).enumerate(),
         &CYAN,
     ))?;
     chart.draw_secondary_series(LineSeries::new(
-        max_ages.iter().copied().enumerate(),
+        max_ages.iter().copied().map(|n| n as f64).enumerate(),
         &MAGENTA,
     ))?;
 
