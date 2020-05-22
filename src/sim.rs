@@ -24,7 +24,7 @@ const MONEY_COLOR_MULTIPLIER: f32 = 0.1;
 
 // starting food for cell
 const SPAWN_FOOD: u32 = 16;
-const MOVE_PENALTY: u32 = 8;
+const MOVE_PENALTY: u32 = 32;
 
 static mut CORNACOPIA_FOOD_SPAWN: u32 = 0;
 static mut CELL_SPAWN_DISTRIBUTION: Option<Bernoulli> = None;
